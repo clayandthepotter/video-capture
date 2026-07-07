@@ -26,9 +26,9 @@ first**, desktop later.
 | Monorepo | pnpm workspaces (`apps/*`, `packages/*`) | Same layout as Cap, minus Turborepo until build times justify it. |
 | Web app | Next.js (App Router) + Tailwind | Handles marketing, recorder, dashboard, share pages, and API routes in one deployable. |
 | Extension | Manifest V3, no bundler | Background service worker + offscreen document (MediaRecorder can't run in a service worker) + content-script bubble. Plain JS keeps it loadable via chrome://extensions with zero build step. |
-| Database (planned) | Postgres + Drizzle ORM | Drizzle matches Cap; Postgres over MySQL as the friendlier open-source-SaaS default. |
-| Auth (planned) | Better Auth | Self-hostable, no vendor lock-in. |
-| Storage (planned) | S3-compatible (R2 / MinIO / S3), presigned multipart uploads | Same self-hosting story as Cap: users can point at their own bucket. |
+| Database | Postgres + Drizzle ORM | Drizzle matches Cap; Postgres over MySQL as the friendlier open-source-SaaS default. Dev instance via docker-compose on host port 5433 (5432 often taken by a native install). |
+| Auth | Better Auth (email + password) | Self-hostable, no vendor lock-in. |
+| Storage | S3-compatible (R2 / MinIO / S3), presigned uploads | Same self-hosting story as Cap: users can point at their own bucket. Client PUTs directly to a presigned URL, so video bytes never pass through the Next.js server. |
 | License | AGPL-3.0 | Cap's model: keeps hosted forks honest while the code stays open. |
 
 ## Repo layout
@@ -73,15 +73,16 @@ no compositing needed in the extension path.
 
 ## Roadmap
 
-- **P0 — local recorder (this scaffold)**: web `/record` page and extension
-  record screen + bubble + mic to a downloadable WebM. No accounts, no server.
-- **P1 — SaaS core**: Better Auth, Postgres + Drizzle, presigned uploads to
-  S3-compatible storage, `/s/[id]` share pages, dashboard listing recordings.
-  Upload chunks *while recording* (Loom/Cap "instant" behavior) — MediaRecorder's
-  `dataavailable` chunks map cleanly onto multipart upload parts.
-- **P2 — polish**: WebM duration fix (seekable metadata), server-side MP4
-  transcode + thumbnails (ffmpeg worker), share-page comments/view counts,
-  extension uploads to the API instead of downloading.
+- **P0 — local recorder ✅**: web `/record` page and extension record screen +
+  bubble + mic to a downloadable WebM. No accounts, no server.
+- **P1 — SaaS core ✅**: Better Auth (email/password), Postgres + Drizzle,
+  presigned uploads to S3-compatible storage, `/s/[id]` share pages, dashboard.
+  Flow: `POST /api/recordings` → presigned PUT → `PATCH` marks it ready.
+- **P2 — polish**: upload chunks *while recording* (Loom/Cap "instant"
+  behavior — MediaRecorder's `dataavailable` chunks map onto multipart upload
+  parts), WebM duration fix (seekable metadata), server-side MP4 transcode +
+  thumbnails (ffmpeg worker), share-page comments/view counts, extension
+  uploads to the API instead of downloading.
 - **P3 — desktop (Windows first)**: Tauri + Rust capture
   (Windows.Graphics.Capture + MediaFoundation), reusing the web app for
   auth/sharing. This is where Cap's crate decomposition becomes the reference.

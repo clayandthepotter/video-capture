@@ -22,12 +22,12 @@ export default function Home() {
         >
           Start recording
         </Link>
-        <a
-          href="https://github.com/CapSoftware/Cap"
+        <Link
+          href="/dashboard"
           className="rounded-lg border border-zinc-700 px-6 py-3 font-semibold text-zinc-300 transition hover:border-zinc-500"
         >
-          Inspired by Cap
-        </a>
+          My recordings
+        </Link>
       </div>
     </main>
   );

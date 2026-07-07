@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useCallback, useEffect, useRef, useState } from "react";
+import { authClient } from "@/lib/auth-client";
 import {
   BubbleState,
   CompositeRecorder,
@@ -9,6 +10,7 @@ import {
 } from "@/lib/recorder";
 
 type Phase = "idle" | "starting" | "recording" | "preview";
+type UploadState = "idle" | "uploading" | "done" | "error";
 
 const INITIAL_BUBBLE: BubbleState = { x: 0.14, y: 0.8, size: 0.28, visible: true };
 
@@ -19,10 +21,18 @@ export default function RecordPage() {
   const [withMic, setWithMic] = useState(true);
   const [elapsed, setElapsed] = useState(0);
   const [resultUrl, setResultUrl] = useState<string | null>(null);
+  const [title, setTitle] = useState("");
+  const [uploadState, setUploadState] = useState<UploadState>("idle");
+  const [shareUrl, setShareUrl] = useState<string | null>(null);
+  const [copied, setCopied] = useState(false);
   // Bubble position mirrored into React state so the DOM overlay re-renders on drag.
   const [bubblePos, setBubblePos] = useState({ x: INITIAL_BUBBLE.x, y: INITIAL_BUBBLE.y });
 
+  const { data: session } = authClient.useSession();
   const bubbleRef = useRef<BubbleState>({ ...INITIAL_BUBBLE });
+  const blobRef = useRef<Blob | null>(null);
+  const startedAtRef = useRef(0);
+  const durationRef = useRef(0);
   const recorderRef = useRef<CompositeRecorder | null>(null);
   const screenRef = useRef<MediaStream | null>(null);
   const cameraRef = useRef<MediaStream | null>(null);
@@ -54,6 +64,10 @@ export default function RecordPage() {
 
     const blob = await recorder.stop();
     cleanupStreams();
+    blobRef.current = blob;
+    durationRef.current = (Date.now() - startedAtRef.current) / 1000;
+    setUploadState("idle");
+    setShareUrl(null);
     setResultUrl((prev) => {
       if (prev) URL.revokeObjectURL(prev);
       return URL.createObjectURL(blob);
@@ -112,6 +126,7 @@ export default function RecordPage() {
       }
 
       setElapsed(0);
+      startedAtRef.current = Date.now();
       timerRef.current = setInterval(() => setElapsed((s) => s + 1), 1000);
       setPhase("recording");
     } catch (err) {
@@ -146,6 +161,45 @@ export default function RecordPage() {
     window.addEventListener("pointermove", move);
     window.addEventListener("pointerup", up);
   }, []);
+
+  const uploadRecording = useCallback(async () => {
+    const blob = blobRef.current;
+    if (!blob) return;
+    setUploadState("uploading");
+    try {
+      const createRes = await fetch("/api/recordings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ title: title || undefined, mimeType: blob.type }),
+      });
+      if (!createRes.ok) throw new Error(`Create failed (${createRes.status})`);
+      const { id, uploadUrl, shareUrl } = await createRes.json();
+
+      const putRes = await fetch(uploadUrl, {
+        method: "PUT",
+        headers: { "Content-Type": blob.type },
+        body: blob,
+      });
+      if (!putRes.ok) throw new Error(`Upload failed (${putRes.status})`);
+
+      await fetch(`/api/recordings/${id}`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          sizeBytes: blob.size,
+          durationSec: durationRef.current,
+        }),
+      });
+
+      const absolute = `${window.location.origin}${shareUrl}`;
+      setShareUrl(absolute);
+      setUploadState("done");
+      await navigator.clipboard.writeText(absolute).catch(() => {});
+    } catch (err) {
+      console.error(err);
+      setUploadState("error");
+    }
+  }, [title]);
 
   const minutes = String(Math.floor(elapsed / 60)).padStart(2, "0");
   const seconds = String(elapsed % 60).padStart(2, "0");
@@ -257,11 +311,63 @@ export default function RecordPage() {
             controls
             className="aspect-video w-full rounded-xl border border-zinc-800 bg-black"
           />
+
+          {shareUrl ? (
+            <div className="flex w-full max-w-lg items-center gap-2 rounded-lg border border-emerald-800 bg-emerald-500/5 p-3">
+              <input
+                readOnly
+                value={shareUrl}
+                className="flex-1 bg-transparent text-sm text-emerald-300 outline-none"
+                onFocus={(e) => e.target.select()}
+              />
+              <button
+                onClick={async () => {
+                  await navigator.clipboard.writeText(shareUrl);
+                  setCopied(true);
+                  setTimeout(() => setCopied(false), 1500);
+                }}
+                className="rounded-md bg-emerald-500 px-3 py-1.5 text-sm font-semibold text-zinc-950 hover:bg-emerald-400"
+              >
+                {copied ? "Copied!" : "Copy"}
+              </button>
+            </div>
+          ) : session ? (
+            <div className="flex w-full max-w-lg flex-col gap-3">
+              <input
+                placeholder="Title (optional)"
+                value={title}
+                onChange={(e) => setTitle(e.target.value)}
+                className="rounded-lg border border-zinc-700 bg-zinc-900 px-4 py-3 text-sm outline-none focus:border-emerald-500"
+              />
+              <button
+                onClick={() => void uploadRecording()}
+                disabled={uploadState === "uploading"}
+                className="rounded-lg bg-emerald-500 px-6 py-3 font-semibold text-zinc-950 transition hover:bg-emerald-400 disabled:opacity-50"
+              >
+                {uploadState === "uploading"
+                  ? "Uploading…"
+                  : "Upload & get share link"}
+              </button>
+              {uploadState === "error" && (
+                <p className="text-center text-sm text-red-400">
+                  Upload failed — check that Postgres/MinIO are running, then try again.
+                </p>
+              )}
+            </div>
+          ) : (
+            <p className="text-sm text-zinc-400">
+              <Link href="/login" className="text-emerald-400 hover:underline">
+                Sign in
+              </Link>{" "}
+              to upload and get a share link.
+            </p>
+          )}
+
           <div className="flex gap-4">
             <a
               href={resultUrl}
               download={`recording-${new Date().toISOString().slice(0, 19).replaceAll(":", "-")}.webm`}
-              className="rounded-lg bg-emerald-500 px-6 py-3 font-semibold text-zinc-950 transition hover:bg-emerald-400"
+              className="rounded-lg border border-zinc-700 px-6 py-3 font-semibold text-zinc-300 transition hover:border-zinc-500"
             >
               Download WebM
             </a>
@@ -272,9 +378,6 @@ export default function RecordPage() {
               Record again
             </button>
           </div>
-          <p className="text-xs text-zinc-500">
-            Share links land in P1 — for now the recording stays on your machine.
-          </p>
         </section>
       )}
     </main>
