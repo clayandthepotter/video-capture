@@ -71,6 +71,29 @@ toolbar click → background SW injects content script → draggable bubble UI i
 The bubble lives in the page DOM, so the screen capture picks it up naturally —
 no compositing needed in the extension path.
 
+## Cap feature map (our template)
+
+Cap is the reference for scope. Where each feature stands here:
+
+| Feature (Cap) | Status here | Phase |
+|---|---|---|
+| Screen + camera bubble + mic recording | ✅ web recorder, canvas-composited | P0 |
+| Floating presenter bubble over any app | ✅ Document Picture-in-Picture; captured physically in full-screen recordings | P2 (shipped early) |
+| Instant share links | ✅ upload after stop; upload-*while*-recording still to do | P1 / P2 |
+| Dashboard (list, link, delete) | ✅ | P1 |
+| Bring-your-own S3 storage | ✅ any S3-compatible endpoint via env | P1 |
+| Self-hosting (Docker) | ✅ compose file for Postgres + MinIO; one-command full stack still to do | P1 / P3 |
+| Chrome extension recording | ✅ scaffolded (in-page bubble, offscreen recorder); upload wiring to do | P0 / P2 |
+| System audio capture | ⚠️ tab/screen audio via Chrome picker; full system audio needs desktop app | P3 |
+| Thumbnails + MP4 (seekable) output | ❌ ffmpeg worker | P2 |
+| Transcripts / captions | ❌ Whisper worker after transcode | P2/P3 |
+| Comments, reactions, view counts on share pages | ❌ | P2 |
+| Password-protected / expiring links | ❌ | P2 |
+| Teams / workspaces | ❌ | P3 |
+| Studio mode (local high-quality + editor: zooms, backgrounds) | ❌ biggest lift; likely alongside desktop app | P4 |
+| Desktop app (native capture, 4K60, true system audio) | ❌ Tauri + Rust, Windows first | P3/P4 |
+| Custom share domains | ❌ | P3 |
+
 ## Roadmap
 
 - **P0 — local recorder ✅**: web `/record` page and extension record screen +

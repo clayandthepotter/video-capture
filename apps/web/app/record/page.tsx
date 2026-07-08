@@ -27,9 +27,15 @@ export default function RecordPage() {
   const [copied, setCopied] = useState(false);
   // Bubble position mirrored into React state so the DOM overlay re-renders on drag.
   const [bubblePos, setBubblePos] = useState({ x: INITIAL_BUBBLE.x, y: INITIAL_BUBBLE.y });
+  const [pipOpen, setPipOpen] = useState(false);
+  const [pipSupported, setPipSupported] = useState(false);
+  // What the user chose in the picker: "monitor" | "window" | "browser" (tab)
+  const [surface, setSurface] = useState<string | null>(null);
 
   const { data: session } = authClient.useSession();
   const bubbleRef = useRef<BubbleState>({ ...INITIAL_BUBBLE });
+  const pipWindowRef = useRef<Window | null>(null);
+  const surfaceRef = useRef<string | null>(null);
   const blobRef = useRef<Blob | null>(null);
   const startedAtRef = useRef(0);
   const durationRef = useRef(0);
@@ -50,17 +56,66 @@ export default function RecordPage() {
   }, []);
 
   useEffect(() => {
+    setPipSupported("documentPictureInPicture" in window);
     return () => {
       cleanupStreams();
+      pipWindowRef.current?.close();
       if (timerRef.current) clearInterval(timerRef.current);
     };
   }, [cleanupStreams]);
+
+  /**
+   * Loom-style floating bubble: an always-on-top Document Picture-in-Picture
+   * window showing the camera. When recording the entire screen the bubble is
+   * physically on it, so the capture picks it up wherever the user drags it —
+   * in that case we stop compositing to avoid a double bubble. For window/tab
+   * recordings the PiP window isn't captured, so compositing stays on and the
+   * bubble serves as a live self-view.
+   */
+  const popOutBubble = useCallback(async () => {
+    const camera = cameraRef.current;
+    const dpp = (
+      window as Window & {
+        documentPictureInPicture?: {
+          requestWindow(opts: { width: number; height: number }): Promise<Window>;
+        };
+      }
+    ).documentPictureInPicture;
+    if (!camera || !dpp) return;
+
+    const pip = await dpp.requestWindow({ width: 240, height: 240 });
+    pipWindowRef.current = pip;
+    pip.document.body.style.cssText =
+      "margin:0;background:#09090b;overflow:hidden;display:grid;place-items:center;";
+    const video = pip.document.createElement("video");
+    video.autoplay = true;
+    video.muted = true;
+    video.playsInline = true;
+    video.srcObject = new MediaStream(camera.getVideoTracks());
+    video.style.cssText =
+      "width:96vmin;height:96vmin;object-fit:cover;border-radius:50%;transform:scaleX(-1);border:3px solid rgba(255,255,255,.9);box-sizing:border-box;";
+    pip.document.body.appendChild(video);
+    setPipOpen(true);
+
+    if (surfaceRef.current === "monitor") {
+      bubbleRef.current.visible = false; // captured physically; don't composite too
+    }
+    pip.addEventListener("pagehide", () => {
+      pipWindowRef.current = null;
+      setPipOpen(false);
+      bubbleRef.current.visible = true; // resume composited bubble
+    });
+  }, []);
 
   const stopRecording = useCallback(async () => {
     const recorder = recorderRef.current;
     if (!recorder) return;
     recorderRef.current = null;
     if (timerRef.current) clearInterval(timerRef.current);
+
+    pipWindowRef.current?.close();
+    pipWindowRef.current = null;
+    setPipOpen(false);
 
     const blob = await recorder.stop();
     cleanupStreams();
@@ -100,6 +155,11 @@ export default function RecordPage() {
         audio: true, // tab/system audio when the user opts in via the picker
       });
       screenRef.current = screen;
+
+      const displaySurface =
+        screen.getVideoTracks()[0]?.getSettings().displaySurface ?? null;
+      surfaceRef.current = displaySurface;
+      setSurface(displaySurface);
 
       bubbleRef.current = {
         ...INITIAL_BUBBLE,
@@ -269,7 +329,7 @@ export default function RecordPage() {
               playsInline
               className="h-full w-full object-contain"
             />
-            {withCamera && (
+            {withCamera && !(pipOpen && surface === "monitor") && (
               <div
                 onPointerDown={onBubbleDrag}
                 className="absolute cursor-grab touch-none overflow-hidden rounded-full border-2 border-white/90 shadow-lg active:cursor-grabbing"
@@ -292,14 +352,34 @@ export default function RecordPage() {
             )}
           </div>
           <p className="text-center text-xs text-zinc-500">
-            Drag the bubble to reposition it — the recording follows.
+            {pipOpen && surface === "monitor"
+              ? "Your floating bubble is being captured right on the screen — drag it wherever you like."
+              : pipOpen
+                ? "Floating self-view is up. The bubble in this preview is what gets recorded — drag it to reposition."
+                : "Drag the bubble to reposition it — the recording follows."}
           </p>
-          <button
-            onClick={() => void stopRecording()}
-            className="mx-auto rounded-lg bg-red-500 px-8 py-3 font-semibold text-white transition hover:bg-red-400"
-          >
-            Stop recording
-          </button>
+          <div className="flex justify-center gap-4">
+            {withCamera && pipSupported && !pipOpen && (
+              <button
+                onClick={() => void popOutBubble()}
+                className="rounded-lg border border-emerald-700 px-6 py-3 font-semibold text-emerald-400 transition hover:border-emerald-500"
+              >
+                Pop out camera bubble
+              </button>
+            )}
+            <button
+              onClick={() => void stopRecording()}
+              className="rounded-lg bg-red-500 px-8 py-3 font-semibold text-white transition hover:bg-red-400"
+            >
+              Stop recording
+            </button>
+          </div>
+          {withCamera && pipSupported && !pipOpen && (
+            <p className="text-center text-xs text-zinc-500">
+              Pop the bubble out to see yourself while you present in other
+              windows{surface === "monitor" ? " — it will appear in the recording exactly where you place it." : "."}
+            </p>
+          )}
         </section>
       )}
 
