@@ -1,16 +1,22 @@
+#__vc_root {
+  --vc-bg: rgba(16, 16, 18, 0.96);
+  --vc-border: rgba(255, 255, 255, 0.1);
+  --vc-accent: #10b981;
+}
+
 #__vc_root .vc-bubble {
   position: fixed;
   left: 24px;
   bottom: 24px;
-  width: 180px;
-  height: 180px;
+  width: 168px;
+  height: 168px;
   border-radius: 50%;
   overflow: hidden;
-  border: 3px solid rgba(255, 255, 255, 0.9);
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
-  z-index: 2147483646;
+  border: 3px solid rgba(255, 255, 255, 0.92);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+  z-index: 2147483645;
   cursor: grab;
-  background: #18181b;
+  background: #101012;
 }
 
 #__vc_root .vc-bubble-frame {
@@ -23,35 +29,176 @@
 #__vc_root .vc-bar {
   position: fixed;
   left: 24px;
-  bottom: 216px;
+  bottom: 208px;
   display: flex;
-  gap: 8px;
-  padding: 8px;
-  border-radius: 12px;
-  background: rgba(24, 24, 27, 0.95);
-  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.4);
-  z-index: 2147483647;
+  align-items: center;
+  gap: 6px;
+  padding: 7px 9px;
+  border-radius: 14px;
+  background: var(--vc-bg);
+  border: 1px solid var(--vc-border);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+  z-index: 2147483646;
   cursor: grab;
-  font-family: system-ui, sans-serif;
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  backdrop-filter: blur(12px);
+}
+
+#__vc_root .vc-brand {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+  border-radius: 7px;
+  background: var(--vc-accent);
+  margin-right: 2px;
+}
+
+#__vc_root .vc-brand-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: #0a0a0b;
 }
 
 #__vc_root .vc-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
   border: 0;
-  border-radius: 8px;
-  padding: 8px 14px;
-  font-size: 13px;
+  border-radius: 9px;
+  padding: 7px 12px;
+  font-size: 12.5px;
   font-weight: 600;
   cursor: pointer;
-  background: #3f3f46;
+  line-height: 1;
   color: #fafafa;
+  background: rgba(255, 255, 255, 0.08);
+  transition: background 0.15s;
 }
 
-#__vc_root .vc-btn-record {
-  background: #10b981;
-  color: #09090b;
+#__vc_root .vc-btn:hover {
+  background: rgba(255, 255, 255, 0.14);
 }
 
-#__vc_root .vc-btn-stop {
+#__vc_root .vc-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+#__vc_root .vc-btn-primary {
+  background: var(--vc-accent);
+  color: #0a0a0b;
+}
+
+#__vc_root .vc-btn-primary:hover {
+  background: #34d399;
+}
+
+#__vc_root .vc-btn-danger {
   background: #ef4444;
   color: #fff;
+}
+
+#__vc_root .vc-btn-danger:hover {
+  background: #f87171;
+}
+
+#__vc_root .vc-btn-icon {
+  padding: 7px;
+}
+
+#__vc_root .vc-btn-ghost {
+  background: transparent;
+  color: rgba(255, 255, 255, 0.55);
+}
+
+#__vc_root .vc-btn-off {
+  color: #f87171;
+}
+
+#__vc_root .vc-timer {
+  font-size: 12.5px;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  color: #f87171;
+  min-width: 34px;
+  text-align: center;
+}
+
+#__vc_root .vc-divider {
+  width: 1px;
+  height: 18px;
+  background: var(--vc-border);
+}
+
+#__vc_root .vc-countdown {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  z-index: 2147483647;
+  pointer-events: none;
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-size: 140px;
+  font-weight: 700;
+  color: #fff;
+  text-shadow: 0 8px 60px rgba(0, 0, 0, 0.6);
+}
+
+#__vc_root .vc-pop {
+  animation: vc-pop 0.75s ease-out;
+}
+
+@keyframes vc-pop {
+  0% {
+    opacity: 0;
+    transform: scale(1.4);
+  }
+  25% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0.2;
+    transform: scale(0.92);
+  }
+}
+
+#__vc_root .vc-toast {
+  position: fixed;
+  bottom: 24px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 10px 18px;
+  border-radius: 10px;
+  background: var(--vc-bg);
+  border: 1px solid var(--vc-border);
+  color: #e4e4e7;
+  font-family: ui-sans-serif, system-ui, sans-serif;
+  font-size: 13px;
+  font-weight: 500;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+  z-index: 2147483647;
+}
+
+#__vc_root .vc-toast-error {
+  border-color: rgba(239, 68, 68, 0.4);
+  color: #fca5a5;
+}
+
+#__vc_root .vc-spinner {
+  width: 12px;
+  height: 12px;
+  border: 2px solid rgba(10, 10, 11, 0.3);
+  border-top-color: #0a0a0b;
+  border-radius: 50%;
+  animation: vc-spin 0.7s linear infinite;
+}
+
+@keyframes vc-spin {
+  to {
+    transform: rotate(360deg);
+  }
 }

@@ -1,17 +1,24 @@
 import type { Metadata } from "next";
+import { Inter } from "next/font/google";
 import "./globals.css";
 
+const inter = Inter({
+  subsets: ["latin"],
+  variable: "--font-inter",
+  display: "swap",
+});
+
 export const metadata: Metadata = {
-  title: "video-capture — open source screen recording",
+  title: "Capca — Record your screen. Share with a link.",
   description:
-    "Record your screen and camera, share with a link. An open source alternative to Loom.",
+    "Open source video messaging for teams. Record your screen with a camera bubble, share instantly with a link, and keep every recording in storage you own.",
 };
 
 export default function RootLayout({
   children,
 }: Readonly<{ children: React.ReactNode }>) {
   return (
-    <html lang="en">
+    <html lang="en" className={inter.variable}>
       <body>{children}</body>
     </html>
   );

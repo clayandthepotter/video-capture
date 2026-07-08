@@ -1,15 +1,37 @@
 // Offscreen document: the only extension context where MediaRecorder +
 // getUserMedia can run under MV3. Receives a desktopCapture streamId from the
-// background worker, records, and hands back a blob URL for download.
+// background worker, records, and hands back a blob URL.
 
 let recorder = null;
 let chunks = [];
 let streams = [];
+let micStream = null;
 let audioCtx = null;
 
 chrome.runtime.onMessage.addListener((msg) => {
-  if (msg.type === "vc:offscreen-start") start(msg);
-  if (msg.type === "vc:offscreen-stop") stop();
+  switch (msg.type) {
+    case "vc:offscreen-start":
+      void start(msg);
+      break;
+    case "vc:offscreen-stop-recording":
+      stop();
+      break;
+    case "vc:offscreen-pause-recording":
+      if (recorder?.state === "recording") {
+        recorder.pause();
+        chrome.runtime.sendMessage({ type: "vc:recording-paused" });
+      }
+      break;
+    case "vc:offscreen-resume-recording":
+      if (recorder?.state === "paused") {
+        recorder.resume();
+        chrome.runtime.sendMessage({ type: "vc:recording-resumed" });
+      }
+      break;
+    case "vc:offscreen-set-mic":
+      micStream?.getAudioTracks().forEach((t) => (t.enabled = msg.enabled));
+      break;
+  }
 });
 
 async function start({ streamId, withMic, withSystemAudio }) {
@@ -33,20 +55,20 @@ async function start({ streamId, withMic, withSystemAudio }) {
     });
     streams.push(desktop);
 
-    let mic = null;
+    micStream = null;
     if (withMic) {
       try {
-        mic = await navigator.mediaDevices.getUserMedia({
+        micStream = await navigator.mediaDevices.getUserMedia({
           audio: { echoCancellation: true, noiseSuppression: true },
         });
-        streams.push(mic);
+        streams.push(micStream);
       } catch {
-        // No mic permission yet — record without it rather than failing.
+        // No mic permission — record without it rather than failing.
       }
     }
 
     const output = new MediaStream(desktop.getVideoTracks());
-    const audioSources = [desktop, mic].filter(
+    const audioSources = [desktop, micStream].filter(
       (s) => s && s.getAudioTracks().length > 0
     );
     if (audioSources.length > 0) {
@@ -75,6 +97,7 @@ async function start({ streamId, withMic, withSystemAudio }) {
       chrome.runtime.sendMessage({
         type: "vc:recording-complete",
         blobUrl: URL.createObjectURL(blob),
+        mimeType: recorder.mimeType,
       });
       cleanup();
     };
@@ -98,6 +121,7 @@ function stop() {
 function cleanup() {
   streams.forEach((s) => s.getTracks().forEach((t) => t.stop()));
   streams = [];
+  micStream = null;
   recorder = null;
   audioCtx?.close();
   audioCtx = null;

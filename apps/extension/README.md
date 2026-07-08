@@ -1,6 +1,12 @@
 # @video-capture/extension
 
-Chrome MV3 extension. No build step — load the folder directly.
+Capca's Chrome MV3 extension — the flagship recording surface. No build step —
+load the folder directly.
+
+Features: camera bubble on the page you're recording, 3-2-1 countdown, timer,
+pause/resume, mic toggle, and automatic upload — if you're signed in to Capca
+in this browser, stopping a recording uploads it and opens the share link;
+otherwise it saves as a download.
 
 ## Install (dev)
 
@@ -23,9 +29,9 @@ Chrome MV3 extension. No build step — load the folder directly.
   workers have no DOM/media APIs). Mixes desktop audio + mic, records WebM,
   returns a blob URL.
 
-## Known gaps (P0)
+## Known gaps
 
-- Output downloads locally; uploading to the web app API is P1.
-- No recording timer or countdown in the control bar yet.
+- Upload targets are hardcoded in `background.js` (`API_BASES`) — localhost
+  and capca.vercel.app. A settings page for custom self-hosted domains is TODO.
 - Picking the same tab you're on records the bubble (intended); picking a
   different window records that window but the bubble stays on the original tab.
