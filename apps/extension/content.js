@@ -31,10 +31,11 @@
   };
 
   let state = "idle"; // idle | starting | recording | paused | uploading
+  let selectedMode = initialStatus?.mode ?? "tab";
   let lastShareUrl = null;
   let savedLocally = false;
-  let micOn = true;
-  let camOn = true;
+  let micOn = initialStatus?.withMic ?? true;
+  let camOn = initialStatus?.withCamera ?? true;
   let seconds = 0;
   let timerId = null;
 
@@ -137,7 +138,7 @@
       render();
       chrome.runtime.sendMessage({
         type: "vc:start-recording",
-        mode: "fullscreen",
+        mode: selectedMode,
         withMic: micOn,
         withCamera: camOn,
       });
@@ -180,6 +181,9 @@
 
   function applyStatus(status) {
     const previousState = state;
+    selectedMode = status.mode ?? selectedMode;
+    micOn = status.withMic ?? micOn;
+    camOn = status.withCamera ?? camOn;
     lastShareUrl = status.shareUrl ?? lastShareUrl;
     savedLocally = Boolean(status.savedLocally);
 

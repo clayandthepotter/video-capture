@@ -15,6 +15,10 @@ otherwise it saves as a download.
 3. Pin the extension and click it on any normal page (not `chrome://` pages)
 4. Choose a capture mode in the popup and start recording
 
+For Google Meet and other browser-based meetings, use **Current tab with
+audio**. Screen/window capture depends on Chrome's display picker granting
+shared audio, which is not reliable for every surface.
+
 ## How it works
 
 - **popup.html / popup.js / popup.css** — the toolbar popup. Lets the user pick
@@ -28,8 +32,9 @@ otherwise it saves as a download.
   iframe on the extension origin so camera+mic permission is granted once for
   the extension instead of per-site.
 - **offscreen.html / offscreen.js** — MediaRecorder lives here (MV3 service
-  workers have no DOM/media APIs). Mixes display/tab audio + mic, records MP4
-  when Chrome supports it and WebM as fallback, then returns a blob URL.
+  workers have no DOM/media APIs). Mixes display/tab audio + mic, routes
+  captured tab audio back to local playback, records MP4 when Chrome supports it
+  and WebM as fallback, then returns a blob URL.
 
 ## Known gaps
 

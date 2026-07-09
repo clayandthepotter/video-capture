@@ -95,18 +95,28 @@ function isUserCancellation(err) {
 async function getDisplayStream(mode, includeAudio) {
   const preferences = DISPLAY_MODE_PREFERENCES[mode] ?? {};
   const video = VIDEO_CONSTRAINTS;
+  const audio = includeAudio
+    ? {
+        echoCancellation: false,
+        noiseSuppression: false,
+        autoGainControl: false,
+        suppressLocalAudioPlayback: false,
+      }
+    : false;
   try {
     return await navigator.mediaDevices.getDisplayMedia({
       ...preferences,
       video,
-      audio: includeAudio,
+      audio,
+      systemAudio: "include",
+      windowAudio: "system",
     });
   } catch (err) {
     if (isUserCancellation(err)) throw err;
     // Fallback ladder (from Cap): some platforms reject the advanced surface
     // preferences or the audio request — degrade instead of failing.
     try {
-      return await navigator.mediaDevices.getDisplayMedia({ video, audio: includeAudio });
+      return await navigator.mediaDevices.getDisplayMedia({ video, audio });
     } catch (retryErr) {
       if (isUserCancellation(retryErr)) throw retryErr;
       if (includeAudio) {
@@ -123,7 +133,12 @@ function getTabStream(streamId, includeAudio) {
       mandatory: { chromeMediaSource: "tab", chromeMediaSourceId: streamId },
     },
     audio: includeAudio
-      ? { mandatory: { chromeMediaSource: "tab", chromeMediaSourceId: streamId } }
+      ? {
+          mandatory: { chromeMediaSource: "tab", chromeMediaSourceId: streamId },
+          echoCancellation: false,
+          noiseSuppression: false,
+          autoGainControl: false,
+        }
       : false,
   });
 }
@@ -183,7 +198,11 @@ async function start({ mode, withMic, tabStreamId }) {
       audioCtx = new AudioContext();
       const dest = audioCtx.createMediaStreamDestination();
       for (const s of audioSources) {
-        audioCtx.createMediaStreamSource(s).connect(dest);
+        const source = audioCtx.createMediaStreamSource(s);
+        source.connect(dest);
+        // Chrome mutes tab playback while tabCapture is active unless the
+        // extension explicitly routes it back to the speakers.
+        if (s === main && mode === "tab") source.connect(audioCtx.destination);
       }
       dest.stream.getAudioTracks().forEach((t) => output.addTrack(t));
     }

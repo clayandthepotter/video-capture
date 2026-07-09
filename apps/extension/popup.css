@@ -37,6 +37,11 @@ p {
   font-size: 12px;
 }
 
+.help {
+  margin-top: 7px;
+  line-height: 1.35;
+}
+
 .logo {
   display: grid;
   width: 34px;

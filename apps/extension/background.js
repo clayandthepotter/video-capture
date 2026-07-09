@@ -88,11 +88,11 @@ async function startRecording({
   withMic = true,
   withCamera = true,
 } = {}) {
-  await setStatus({ phase: "creating", mode, withCamera });
+  await setStatus({ phase: "creating", mode, withMic, withCamera });
 
   let tabStreamId;
   const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
-  await showControls(activeTab?.id, { phase: "creating", mode, withCamera });
+  await showControls(activeTab?.id, { phase: "creating", mode, withMic, withCamera });
   if (mode === "tab") {
     if (activeTab?.id == null) {
       await setStatus({ phase: "error", error: "No active tab to record" });

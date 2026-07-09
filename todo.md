@@ -26,6 +26,9 @@ Updated: 2026-07-08
 
 ## Done
 
+- [x] Defaulted meeting-style captures toward current-tab recording so Google
+  Meet participant audio is captured through Chrome tab audio.
+- [x] Routed captured tab audio back to local playback while recording.
 - [x] Fixed the extension startup bug where every tab mounted the camera bubble
   and showed Chrome's recording indicator before the user started recording.
 - [x] Added the missing extension `popup.html` target referenced by
