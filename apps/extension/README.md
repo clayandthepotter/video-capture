@@ -1,4 +1,4 @@
-# @video-capture/extension
+# @capca/extension
 
 Capca's Chrome MV3 extension — the flagship recording surface. No build step —
 load the folder directly.

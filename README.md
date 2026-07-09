@@ -105,13 +105,21 @@ This starts:
 
 MinIO local credentials:
 
-- Username: `videocapture`
-- Password: `videocapture`
+- Username: `capca`
+- Password: `capca`
+
+If you previously ran the project before the repo was renamed to Capca, remove
+old local volumes before restarting Docker:
+
+```sh
+docker compose down -v
+docker compose up -d
+```
 
 ### 4. Create Database Tables
 
 ```sh
-pnpm --filter @video-capture/web db:push
+pnpm --filter @capca/web db:push
 ```
 
 ### 5. Start The Web App
@@ -164,8 +172,8 @@ Click the compact logo to restore it.
 
 ```sh
 pnpm dev
-pnpm --filter @video-capture/web build
-pnpm --filter @video-capture/web db:push
+pnpm --filter @capca/web build
+pnpm --filter @capca/web db:push
 ```
 
 `pnpm lint` exists at the root, but the workspace does not currently define
@@ -184,8 +192,8 @@ Check:
 
 - `docker compose up -d` is running
 - `S3_ENDPOINT=http://localhost:9000`
-- `S3_ACCESS_KEY_ID=videocapture`
-- `S3_SECRET_ACCESS_KEY=videocapture`
+- `S3_ACCESS_KEY_ID=capca`
+- `S3_SECRET_ACCESS_KEY=capca`
 - `S3_FORCE_PATH_STYLE=true`
 
 The app creates the local MinIO bucket on first use when
@@ -230,7 +238,7 @@ The most valuable contributions right now are reliability improvements:
 Before opening a pull request, run:
 
 ```sh
-pnpm --filter @video-capture/web build
+pnpm --filter @capca/web build
 ```
 
 Also test the extension manually through `chrome://extensions` if your change

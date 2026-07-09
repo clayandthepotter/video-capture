@@ -268,7 +268,7 @@ export default function RecordPage() {
     <main className="mx-auto flex min-h-screen max-w-5xl flex-col gap-6 px-6 py-10">
       <header className="flex items-center justify-between">
         <Link href="/" className="text-sm text-zinc-400 hover:text-zinc-200">
-          ← video-capture
+          ← Capca
         </Link>
         {phase === "recording" && (
           <span className="flex items-center gap-2 rounded-full bg-red-500/10 px-3 py-1 text-sm font-medium text-red-400">

@@ -1,12 +1,12 @@
 {
-  "name": "video-capture",
+  "name": "capca",
   "private": true,
   "version": "0.1.0",
   "description": "Open source video messaging — record your screen and camera, share with a link. An open alternative to Loom.",
   "license": "AGPL-3.0-only",
   "packageManager": "pnpm@11.10.0",
   "scripts": {
-    "dev": "pnpm --filter @video-capture/web dev",
+    "dev": "pnpm --filter @capca/web dev",
     "build": "pnpm -r build",
     "lint": "pnpm -r lint"
   },

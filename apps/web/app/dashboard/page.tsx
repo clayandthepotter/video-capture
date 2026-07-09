@@ -22,7 +22,7 @@ export default async function DashboardPage() {
       <header className="flex items-center justify-between">
         <div>
           <Link href="/" className="text-sm text-zinc-400 hover:text-zinc-200">
-            ← video-capture
+            ← Capca
           </Link>
           <h1 className="mt-1 text-2xl font-bold">My recordings</h1>
         </div>

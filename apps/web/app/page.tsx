@@ -1,6 +1,6 @@
 import Link from "next/link";
 
-const GITHUB_URL = "https://github.com/clayandthepotter/video-capture";
+const GITHUB_URL = "https://github.com/clayandthepotter/capca";
 
 /* ---------- Inline icons (lucide-style, stroke) ---------- */
 
@@ -369,7 +369,7 @@ const SPLIT_SECTIONS = [
           <div className="p-4">
             <p className="text-zinc-500">
               <span className="text-emerald-400">$</span> git clone
-              clayandthepotter/video-capture
+              clayandthepotter/capca
             </p>
             <p className="text-zinc-500">
               <span className="text-emerald-400">$</span> docker compose up -d

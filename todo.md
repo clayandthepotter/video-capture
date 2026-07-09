@@ -26,6 +26,8 @@ Updated: 2026-07-09
 
 ## Done
 
+- [x] Updated project metadata, documentation, local dev defaults, and app links
+  after renaming the GitHub repo to `capca`.
 - [x] Rewrote the root README for clearer open-source onboarding, local setup,
   extension usage, troubleshooting, and contribution guidance.
 - [x] Removed the redundant extension capture-mode dropdown; Chrome's native
