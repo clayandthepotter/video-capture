@@ -10,7 +10,8 @@ Updated: 2026-07-09
   Postgres + MinIO.
 - [ ] Define the Google Drive-backed free tier implementation plan for
   unlimited user-owned recordings.
-- [ ] Redesign the web UI around the calm, Drive-owned Capca brand direction.
+- [ ] Enforce Capca brand QA on every new page, extension surface, and state
+  before it is considered complete.
 
 ## Next
 
@@ -36,6 +37,12 @@ Updated: 2026-07-09
 
 ## Done
 
+- [x] Aligned the active web app and extension interfaces to the Capca brand
+  system: light Drive-first web surfaces, blue trust accent, neutral structure,
+  and consistent ownership/status language.
+- [x] Added an explicit design-system rule that every page, popup, toolbar,
+  empty state, loading state, and future product surface must match the Capca
+  branding style.
 - [x] Started the Drive-first UI redesign by replacing the old dark/S3-focused
   landing page with a calm light homepage centered on recording, Drive
   ownership, status visibility, and paid boundaries.

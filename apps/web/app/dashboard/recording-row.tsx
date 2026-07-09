@@ -30,33 +30,36 @@ export function RecordingRow({ recording }: { recording: Recording }) {
     : null;
 
   return (
-    <li className="flex items-center justify-between gap-4 p-4">
+    <li className="flex flex-col gap-4 p-4 sm:flex-row sm:items-center sm:justify-between">
       <div className="min-w-0">
         <Link
           href={`/s/${recording.id}`}
-          className="block truncate font-medium hover:text-emerald-400"
+          className="block truncate font-semibold text-zinc-950 hover:text-blue-700"
         >
           {recording.title}
         </Link>
-        <p className="text-xs text-zinc-500">
+        <p className="mt-1 text-xs font-medium text-zinc-500">
           {new Date(recording.createdAt).toLocaleString()}
           {mins ? ` · ${mins}` : ""}
           {recording.status === "uploading" ? " · upload incomplete" : ""}
+        </p>
+        <p className="mt-2 inline-flex rounded-full bg-blue-50 px-2.5 py-1 text-xs font-semibold text-blue-700">
+          Storage destination visible soon
         </p>
       </div>
       <div className="flex shrink-0 gap-2">
         <button
           onClick={copyLink}
-          className="rounded-lg border border-zinc-700 px-3 py-1.5 text-sm text-zinc-300 transition hover:border-zinc-500"
+          className="rounded-lg border border-zinc-200 bg-white px-3 py-1.5 text-sm font-semibold text-zinc-700 transition hover:border-blue-300 hover:text-blue-700"
         >
           {copied ? "Copied!" : "Copy link"}
         </button>
         <button
           onClick={remove}
           disabled={deleting}
-          className="rounded-lg border border-red-900 px-3 py-1.5 text-sm text-red-400 transition hover:border-red-600 disabled:opacity-50"
+          className="rounded-lg border border-red-200 bg-white px-3 py-1.5 text-sm font-semibold text-red-600 transition hover:border-red-400 disabled:opacity-50"
         >
-          {deleting ? "…" : "Delete"}
+          {deleting ? "Deleting..." : "Delete"}
         </button>
       </div>
     </li>

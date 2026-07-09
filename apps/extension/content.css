@@ -1,7 +1,7 @@
 #__vc_root {
-  --vc-bg: rgba(16, 16, 18, 0.96);
+  --vc-bg: rgba(23, 23, 23, 0.96);
   --vc-border: rgba(255, 255, 255, 0.1);
-  --vc-accent: #10b981;
+  --vc-accent: #2563eb;
 }
 
 #__vc_root [hidden] {
@@ -56,7 +56,7 @@
   justify-content: center;
   padding: 0;
   border: 0;
-  border-radius: 7px;
+  border-radius: 8px;
   background: var(--vc-accent);
   margin-right: 2px;
   color: inherit;
@@ -64,14 +64,14 @@
 }
 
 #__vc_root .vc-brand:hover {
-  background: #34d399;
+  background: #1d4ed8;
 }
 
 #__vc_root .vc-brand-dot {
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: #0a0a0b;
+  background: #fff;
 }
 
 #__vc_root .vc-restore {
@@ -93,7 +93,7 @@
 }
 
 #__vc_root .vc-restore:hover {
-  background: #34d399;
+  background: #1d4ed8;
 }
 
 #__vc_root .vc-restore .vc-brand-dot {
@@ -128,11 +128,11 @@
 
 #__vc_root .vc-btn-primary {
   background: var(--vc-accent);
-  color: #0a0a0b;
+  color: #fff;
 }
 
 #__vc_root .vc-btn-primary:hover {
-  background: #34d399;
+  background: #1d4ed8;
 }
 
 #__vc_root .vc-btn-danger {
@@ -230,8 +230,8 @@
 #__vc_root .vc-spinner {
   width: 12px;
   height: 12px;
-  border: 2px solid rgba(10, 10, 11, 0.3);
-  border-top-color: #0a0a0b;
+  border: 2px solid rgba(255, 255, 255, 0.35);
+  border-top-color: #fff;
   border-radius: 50%;
   animation: vc-spin 0.7s linear infinite;
 }

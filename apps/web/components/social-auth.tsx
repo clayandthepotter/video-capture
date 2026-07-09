@@ -49,7 +49,7 @@ export function SocialAuth() {
       setBusy(null);
       setError(error.message ?? `${provider} sign-in failed`);
     }
-    // on success the browser navigates to the provider — no state to reset
+    // On success the browser navigates to the provider; no state reset is needed.
   }
 
   return (
@@ -59,26 +59,26 @@ export function SocialAuth() {
           type="button"
           onClick={() => void social("google")}
           disabled={busy !== null}
-          className="flex items-center justify-center gap-2 rounded-lg border border-zinc-700 bg-zinc-900 px-4 py-2.5 text-sm font-medium text-zinc-200 transition hover:border-zinc-500 disabled:opacity-50"
+          className="flex items-center justify-center gap-2 rounded-lg border border-zinc-200 bg-white px-4 py-2.5 text-sm font-semibold text-zinc-900 shadow-sm transition hover:border-blue-300 hover:bg-blue-50 disabled:opacity-50"
         >
           <GoogleLogo />
-          {busy === "google" ? "Redirecting…" : "Google"}
+          {busy === "google" ? "Redirecting..." : "Google"}
         </button>
         <button
           type="button"
           onClick={() => void social("github")}
           disabled={busy !== null}
-          className="flex items-center justify-center gap-2 rounded-lg border border-zinc-700 bg-zinc-900 px-4 py-2.5 text-sm font-medium text-zinc-200 transition hover:border-zinc-500 disabled:opacity-50"
+          className="flex items-center justify-center gap-2 rounded-lg border border-zinc-200 bg-white px-4 py-2.5 text-sm font-semibold text-zinc-900 shadow-sm transition hover:border-blue-300 hover:bg-blue-50 disabled:opacity-50"
         >
           <GitHubLogo />
-          {busy === "github" ? "Redirecting…" : "GitHub"}
+          {busy === "github" ? "Redirecting..." : "GitHub"}
         </button>
       </div>
-      {error && <p className="text-sm text-red-400">{error}</p>}
+      {error && <p className="text-sm font-medium text-red-600">{error}</p>}
       <div className="flex items-center gap-3 py-1">
-        <span className="h-px flex-1 bg-zinc-800" />
-        <span className="text-xs text-zinc-500">or with email</span>
-        <span className="h-px flex-1 bg-zinc-800" />
+        <span className="h-px flex-1 bg-zinc-200" />
+        <span className="text-xs font-medium text-zinc-500">or with email</span>
+        <span className="h-px flex-1 bg-zinc-200" />
       </div>
     </div>
   );

@@ -1,11 +1,18 @@
 @import "tailwindcss";
 
 :root {
-  color-scheme: dark;
+  color-scheme: light;
+  --capca-bg: #f7f7f2;
+  --capca-surface: #ffffff;
+  --capca-ink: #171717;
+  --capca-muted: #5f6472;
+  --capca-line: #e4e6ec;
+  --capca-blue: #2563eb;
+  --capca-blue-dark: #1d4ed8;
 }
 
 body {
-  @apply bg-[#0a0a0b] text-zinc-100 antialiased;
+  @apply bg-[#f7f7f2] text-[#171717] antialiased;
   font-family: var(--font-inter), ui-sans-serif, system-ui, sans-serif;
   font-feature-settings: "cv11", "ss01";
   text-rendering: optimizeLegibility;

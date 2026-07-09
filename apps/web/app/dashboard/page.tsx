@@ -18,28 +18,52 @@ export default async function DashboardPage() {
     .orderBy(desc(recording.createdAt));
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-4xl flex-col gap-8 px-6 py-10">
-      <header className="flex items-center justify-between">
+    <main className="mx-auto flex min-h-screen max-w-6xl flex-col gap-8 px-6 py-8">
+      <header className="flex flex-col gap-6 rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <Link href="/" className="text-sm text-zinc-400 hover:text-zinc-200">
-            ← Capca
+          <Link href="/" className="inline-flex items-center gap-2 text-sm font-semibold text-zinc-600 hover:text-blue-700">
+            <span className="grid h-8 w-8 place-items-center rounded-lg bg-blue-600">
+              <span className="h-2.5 w-2.5 rounded-full bg-white" />
+            </span>
+            Capca
           </Link>
-          <h1 className="mt-1 text-2xl font-bold">My recordings</h1>
+          <p className="mt-6 text-sm font-semibold uppercase tracking-[0.16em] text-blue-700">
+            Library
+          </p>
+          <h1 className="mt-2 text-3xl font-bold tracking-tight text-zinc-950">
+            My recordings
+          </h1>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-zinc-600">
+            Review recordings, copy share links, and keep storage destination
+            visible as the Drive workflow comes online.
+          </p>
         </div>
         <Link
           href="/record"
-          className="rounded-lg bg-emerald-500 px-5 py-2.5 font-semibold text-zinc-950 transition hover:bg-emerald-400"
+          className="inline-flex items-center justify-center rounded-lg bg-blue-600 px-5 py-3 text-sm font-semibold text-white shadow-sm transition hover:bg-blue-700"
         >
           New recording
         </Link>
       </header>
 
       {rows.length === 0 ? (
-        <p className="rounded-xl border border-dashed border-zinc-800 p-10 text-center text-zinc-500">
-          No recordings yet — hit &quot;New recording&quot; to make your first.
-        </p>
+        <section className="rounded-2xl border border-dashed border-blue-200 bg-blue-50/60 p-10 text-center">
+          <p className="text-lg font-semibold text-zinc-950">
+            No recordings yet
+          </p>
+          <p className="mx-auto mt-2 max-w-md text-sm leading-6 text-zinc-600">
+            Start with a quick browser recording. Capca should always tell you
+            where the file is stored and what happens next.
+          </p>
+          <Link
+            href="/record"
+            className="mt-6 inline-flex rounded-lg bg-blue-600 px-5 py-3 text-sm font-semibold text-white hover:bg-blue-700"
+          >
+            Record your first video
+          </Link>
+        </section>
       ) : (
-        <ul className="flex flex-col divide-y divide-zinc-800 rounded-xl border border-zinc-800">
+        <ul className="flex flex-col divide-y divide-zinc-200 overflow-hidden rounded-2xl border border-zinc-200 bg-white shadow-sm">
           {rows.map((r) => (
             <RecordingRow key={r.id} recording={r} />
           ))}

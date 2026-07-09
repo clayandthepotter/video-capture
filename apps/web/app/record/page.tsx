@@ -67,8 +67,8 @@ export default function RecordPage() {
   /**
    * Loom-style floating bubble: an always-on-top Document Picture-in-Picture
    * window showing the camera. When recording the entire screen the bubble is
-   * physically on it, so the capture picks it up wherever the user drags it —
-   * in that case we stop compositing to avoid a double bubble. For window/tab
+   * physically on it, so the capture picks it up wherever the user drags it.
+   * In that case we stop compositing to avoid a double bubble. For window/tab
    * recordings the PiP window isn't captured, so compositing stays on and the
    * bubble serves as a live self-view.
    */
@@ -194,7 +194,7 @@ export default function RecordPage() {
       recorderRef.current = null;
       setPhase("idle");
       if (err instanceof DOMException && err.name === "NotAllowedError") {
-        setError("Permission denied — allow camera/mic/screen access to record.");
+        setError("Permission denied. Allow camera/mic/screen access to record.");
       } else {
         setError(err instanceof Error ? err.message : String(err));
       }
@@ -265,13 +265,16 @@ export default function RecordPage() {
   const seconds = String(elapsed % 60).padStart(2, "0");
 
   return (
-    <main className="mx-auto flex min-h-screen max-w-5xl flex-col gap-6 px-6 py-10">
-      <header className="flex items-center justify-between">
-        <Link href="/" className="text-sm text-zinc-400 hover:text-zinc-200">
-          ← Capca
+    <main className="mx-auto flex min-h-screen max-w-6xl flex-col gap-6 px-6 py-8">
+      <header className="flex items-center justify-between rounded-2xl border border-zinc-200 bg-white p-4 shadow-sm">
+        <Link href="/" className="inline-flex items-center gap-2 text-sm font-semibold text-zinc-700 hover:text-blue-700">
+          <span className="grid h-8 w-8 place-items-center rounded-lg bg-blue-600">
+            <span className="h-2.5 w-2.5 rounded-full bg-white" />
+          </span>
+          Capca
         </Link>
         {phase === "recording" && (
-          <span className="flex items-center gap-2 rounded-full bg-red-500/10 px-3 py-1 text-sm font-medium text-red-400">
+          <span className="flex items-center gap-2 rounded-full bg-red-50 px-3 py-1 text-sm font-semibold text-red-700">
             <span className="h-2 w-2 animate-pulse rounded-full bg-red-500" />
             {minutes}:{seconds}
           </span>
@@ -279,40 +282,54 @@ export default function RecordPage() {
       </header>
 
       {phase === "idle" || phase === "starting" ? (
-        <section className="flex flex-1 flex-col items-center justify-center gap-6 text-center">
-          <h1 className="text-3xl font-bold">New recording</h1>
-          <div className="flex gap-6 text-sm text-zinc-300">
-            <label className="flex cursor-pointer items-center gap-2">
-              <input
-                type="checkbox"
-                checked={withCamera}
-                onChange={(e) => setWithCamera(e.target.checked)}
-                className="h-4 w-4 accent-emerald-500"
-              />
-              Camera bubble
-            </label>
-            <label className="flex cursor-pointer items-center gap-2">
-              <input
-                type="checkbox"
-                checked={withMic}
-                onChange={(e) => setWithMic(e.target.checked)}
-                className="h-4 w-4 accent-emerald-500"
-              />
-              Microphone
-            </label>
+        <section className="grid flex-1 items-center gap-8 lg:grid-cols-[0.95fr_1.05fr]">
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-[0.16em] text-blue-700">
+              Recorder
+            </p>
+            <h1 className="mt-3 text-4xl font-bold tracking-tight text-zinc-950 sm:text-5xl">
+              Record with confidence.
+            </h1>
+            <p className="mt-4 max-w-xl text-base leading-7 text-zinc-600">
+              Choose your screen in Chrome's picker, keep audio permission
+              explicit, and see exactly what Capca is capturing before you
+              share.
+            </p>
           </div>
-          <button
-            onClick={startRecording}
-            disabled={phase === "starting"}
-            className="rounded-lg bg-emerald-500 px-8 py-3 font-semibold text-zinc-950 transition hover:bg-emerald-400 disabled:opacity-50"
-          >
-            {phase === "starting" ? "Requesting permissions…" : "Start recording"}
-          </button>
-          <p className="max-w-md text-xs text-zinc-500">
-            You&apos;ll be asked to pick a screen, window, or tab. Check
-            &quot;share audio&quot; in the picker to capture tab/system sound.
-          </p>
-          {error && <p className="text-sm text-red-400">{error}</p>}
+          <div className="rounded-2xl border border-zinc-200 bg-white p-6 shadow-sm">
+            <div className="space-y-3">
+              <label className="flex cursor-pointer items-center justify-between gap-4 rounded-lg border border-zinc-200 px-4 py-3 text-sm font-semibold text-zinc-800">
+                <span>Camera bubble</span>
+                <input
+                  type="checkbox"
+                  checked={withCamera}
+                  onChange={(e) => setWithCamera(e.target.checked)}
+                  className="h-4 w-4 accent-blue-600"
+                />
+              </label>
+              <label className="flex cursor-pointer items-center justify-between gap-4 rounded-lg border border-zinc-200 px-4 py-3 text-sm font-semibold text-zinc-800">
+                <span>Microphone</span>
+                <input
+                  type="checkbox"
+                  checked={withMic}
+                  onChange={(e) => setWithMic(e.target.checked)}
+                  className="h-4 w-4 accent-blue-600"
+                />
+              </label>
+              <div className="rounded-lg bg-blue-50 p-4 text-sm leading-6 text-blue-900">
+                For Google Meet, choose the Meet tab and keep "Also share tab
+                audio" enabled in Chrome's picker.
+              </div>
+            </div>
+            <button
+              onClick={startRecording}
+              disabled={phase === "starting"}
+              className="mt-5 w-full rounded-lg bg-blue-600 px-8 py-3 font-semibold text-white transition hover:bg-blue-700 disabled:opacity-50"
+            >
+              {phase === "starting" ? "Requesting permissions..." : "Start recording"}
+            </button>
+            {error && <p className="mt-4 text-sm font-medium text-red-600">{error}</p>}
+          </div>
         </section>
       ) : null}
 
@@ -320,7 +337,7 @@ export default function RecordPage() {
         <section className="flex flex-col gap-4">
           <div
             ref={previewBoxRef}
-            className="relative aspect-video w-full overflow-hidden rounded-xl border border-zinc-800 bg-black"
+            className="relative aspect-video w-full overflow-hidden rounded-2xl border border-zinc-200 bg-black shadow-sm"
           >
             <video
               ref={screenPreviewRef}
@@ -351,18 +368,18 @@ export default function RecordPage() {
               </div>
             )}
           </div>
-          <p className="text-center text-xs text-zinc-500">
+          <p className="text-center text-xs font-medium text-zinc-500">
             {pipOpen && surface === "monitor"
-              ? "Your floating bubble is being captured right on the screen — drag it wherever you like."
+              ? "Your floating bubble is being captured right on the screen. Drag it wherever you like."
               : pipOpen
-                ? "Floating self-view is up. The bubble in this preview is what gets recorded — drag it to reposition."
-                : "Drag the bubble to reposition it — the recording follows."}
+                ? "Floating self-view is up. The bubble in this preview is what gets recorded. Drag it to reposition."
+                : "Drag the bubble to reposition it. The recording follows."}
           </p>
           <div className="flex justify-center gap-4">
             {withCamera && pipSupported && !pipOpen && (
               <button
                 onClick={() => void popOutBubble()}
-                className="rounded-lg border border-emerald-700 px-6 py-3 font-semibold text-emerald-400 transition hover:border-emerald-500"
+                className="rounded-lg border border-blue-200 bg-white px-6 py-3 font-semibold text-blue-700 transition hover:border-blue-400"
               >
                 Pop out camera bubble
               </button>
@@ -375,9 +392,9 @@ export default function RecordPage() {
             </button>
           </div>
           {withCamera && pipSupported && !pipOpen && (
-            <p className="text-center text-xs text-zinc-500">
+            <p className="text-center text-xs font-medium text-zinc-500">
               Pop the bubble out to see yourself while you present in other
-              windows{surface === "monitor" ? " — it will appear in the recording exactly where you place it." : "."}
+              windows{surface === "monitor" ? " - it will appear in the recording exactly where you place it." : "."}
             </p>
           )}
         </section>
@@ -385,19 +402,19 @@ export default function RecordPage() {
 
       {phase === "preview" && resultUrl && (
         <section className="flex flex-col items-center gap-4">
-          <h1 className="text-2xl font-bold">Your recording</h1>
+          <h1 className="text-3xl font-bold tracking-tight text-zinc-950">Your recording</h1>
           <video
             src={resultUrl}
             controls
-            className="aspect-video w-full rounded-xl border border-zinc-800 bg-black"
+            className="aspect-video w-full rounded-2xl border border-zinc-200 bg-black shadow-sm"
           />
 
           {shareUrl ? (
-            <div className="flex w-full max-w-lg items-center gap-2 rounded-lg border border-emerald-800 bg-emerald-500/5 p-3">
+            <div className="flex w-full max-w-lg items-center gap-2 rounded-lg border border-blue-200 bg-blue-50 p-3">
               <input
                 readOnly
                 value={shareUrl}
-                className="flex-1 bg-transparent text-sm text-emerald-300 outline-none"
+                className="flex-1 bg-transparent text-sm font-medium text-blue-900 outline-none"
                 onFocus={(e) => e.target.select()}
               />
               <button
@@ -406,7 +423,7 @@ export default function RecordPage() {
                   setCopied(true);
                   setTimeout(() => setCopied(false), 1500);
                 }}
-                className="rounded-md bg-emerald-500 px-3 py-1.5 text-sm font-semibold text-zinc-950 hover:bg-emerald-400"
+                className="rounded-md bg-blue-600 px-3 py-1.5 text-sm font-semibold text-white hover:bg-blue-700"
               >
                 {copied ? "Copied!" : "Copy"}
               </button>
@@ -417,26 +434,26 @@ export default function RecordPage() {
                 placeholder="Title (optional)"
                 value={title}
                 onChange={(e) => setTitle(e.target.value)}
-                className="rounded-lg border border-zinc-700 bg-zinc-900 px-4 py-3 text-sm outline-none focus:border-emerald-500"
+                className="rounded-lg border border-zinc-200 bg-white px-4 py-3 text-sm text-zinc-950 outline-none transition placeholder:text-zinc-400 focus:border-blue-500 focus:ring-4 focus:ring-blue-100"
               />
               <button
                 onClick={() => void uploadRecording()}
                 disabled={uploadState === "uploading"}
-                className="rounded-lg bg-emerald-500 px-6 py-3 font-semibold text-zinc-950 transition hover:bg-emerald-400 disabled:opacity-50"
+                className="rounded-lg bg-blue-600 px-6 py-3 font-semibold text-white transition hover:bg-blue-700 disabled:opacity-50"
               >
                 {uploadState === "uploading"
-                  ? "Uploading…"
+                  ? "Uploading..."
                   : "Upload & get share link"}
               </button>
               {uploadState === "error" && (
-                <p className="text-center text-sm text-red-400">
-                  Upload failed — check that Postgres/MinIO are running, then try again.
+                <p className="text-center text-sm font-medium text-red-600">
+                  Upload failed. Check that Postgres/MinIO are running, then try again.
                 </p>
               )}
             </div>
           ) : (
-            <p className="text-sm text-zinc-400">
-              <Link href="/login" className="text-emerald-400 hover:underline">
+            <p className="text-sm text-zinc-600">
+              <Link href="/login" className="font-semibold text-blue-700 hover:underline">
                 Sign in
               </Link>{" "}
               to upload and get a share link.
@@ -447,13 +464,13 @@ export default function RecordPage() {
             <a
               href={resultUrl}
               download={`recording-${new Date().toISOString().slice(0, 19).replaceAll(":", "-")}.webm`}
-              className="rounded-lg border border-zinc-700 px-6 py-3 font-semibold text-zinc-300 transition hover:border-zinc-500"
+              className="rounded-lg border border-zinc-200 bg-white px-6 py-3 font-semibold text-zinc-700 transition hover:border-blue-300 hover:text-blue-700"
             >
               Download WebM
             </a>
             <button
               onClick={() => setPhase("idle")}
-              className="rounded-lg border border-zinc-700 px-6 py-3 font-semibold text-zinc-300 transition hover:border-zinc-500"
+              className="rounded-lg border border-zinc-200 bg-white px-6 py-3 font-semibold text-zinc-700 transition hover:border-blue-300 hover:text-blue-700"
             >
               Record again
             </button>

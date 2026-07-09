@@ -13,6 +13,12 @@ The product should constantly reinforce that recordings belong to the user.
 
 ## UX Principles
 
+Every product surface must follow this branding system. That includes the
+marketing page, auth screens, dashboard, recorder, share pages, browser
+extension popup, in-page toolbar, empty states, loading states, errors, and
+future admin/billing surfaces. If a page cannot follow the system yet, it
+should be treated as unfinished.
+
 1. **Reliability feels like speed.** Users can wait if they know what is
    happening. They will not forgive uncertainty.
 2. **Ownership is visible.** Google Drive is not a hidden integration. It is the
