@@ -118,26 +118,30 @@ try {
       status: { phase: "idle", withMic: true, withCamera: true },
     });
   });
-  await page.waitForSelector("#__vc_root .vc-bar", { timeout: 5000 });
-  check("recording bar mounted via show-controls", true);
+  // The bar lives inside a shadow root (page-CSS isolation), so all queries
+  // and clicks go through the shadow boundary.
+  const inBar = (sel) =>
+    `document.getElementById('__vc_host')?.shadowRoot?.querySelector(${JSON.stringify(sel)})`;
+  const clickBar = (sel) => page.evaluate(`${inBar(sel)}.click()`);
+  const evalBar = (sel, expr) => page.evaluate(`(${inBar(sel)})${expr}`);
+
+  await page.waitForFunction(`!!${inBar(".vc-bar")}`, { timeout: 5000 });
+  check("recording bar mounted in shadow root", true);
 
   const bubbleVisible = await page
-    .waitForFunction(() => {
-      const f = document.querySelector("#__vc_root .vc-bubble-frame");
-      return f && f.getBoundingClientRect().width > 0;
-    }, { timeout: 5000 })
+    .waitForFunction(
+      `(() => { const f = ${inBar(".vc-bubble-frame")}; return f && f.getBoundingClientRect().width > 0; })()`,
+      { timeout: 5000 },
+    )
     .then(() => true)
     .catch(() => false);
   check("camera bubble visible", bubbleVisible);
 
   // ---- 3. Start recording from the bar
-  await page.click('#__vc_root [data-action="record"]');
+  await clickBar('[data-action="record"]');
   const wentRed = await page
     .waitForFunction(
-      () =>
-        document
-          .querySelector('#__vc_root [data-action="record"]')
-          ?.classList.contains("vc-btn-danger"),
+      `${inBar('[data-action="record"]')}?.classList.contains("vc-btn-danger")`,
       { timeout: 20000 },
     )
     .then(() => true)
@@ -146,33 +150,27 @@ try {
   if (!wentRed) throw new Error("recording never started — see extension logs");
 
   await sleep(3200);
-  const timerText = await page.$eval("#__vc_root .vc-timer", (el) => el.textContent);
+  const timerText = await evalBar(".vc-timer", ".textContent");
   check("timer is counting", /^0:0[2-9]/.test(timerText), `timer=${timerText}`);
 
   // ---- 4. Pause / resume through the bar
-  await page.click('#__vc_root [data-action="pause"]');
+  await clickBar('[data-action="pause"]');
   await sleep(400);
-  const pausedIcon = await page.$eval(
-    '#__vc_root [data-action="pause"]',
-    (el) => el.innerHTML.includes("M8 5.5"), // play icon path
-  );
+  const pausedIcon = await evalBar('[data-action="pause"]', '.innerHTML.includes("M8 5.5")');
   check("pause reflects paused state", pausedIcon);
-  const tPaused = await page.$eval("#__vc_root .vc-timer", (el) => el.textContent);
+  const tPaused = await evalBar(".vc-timer", ".textContent");
   await sleep(1600);
-  const tStill = await page.$eval("#__vc_root .vc-timer", (el) => el.textContent);
+  const tStill = await evalBar(".vc-timer", ".textContent");
   check("timer frozen while paused", tPaused === tStill, `${tPaused} vs ${tStill}`);
-  await page.click('#__vc_root [data-action="pause"]');
+  await clickBar('[data-action="pause"]');
   await sleep(1200);
 
   // ---- 5. Camera toggle hides the bubble (removes it from the capture)
-  await page.click('#__vc_root [data-action="camera"]');
+  await clickBar('[data-action="camera"]');
   await sleep(300);
-  const bubbleHidden = await page.$eval(
-    "#__vc_root .vc-bubble",
-    (el) => getComputedStyle(el).display === "none",
-  );
-  check("camera toggle hides bubble", bubbleHidden);
-  await page.click('#__vc_root [data-action="camera"]');
+  const bubbleHidden = await evalBar(".vc-bubble", ' && getComputedStyle(' + inBar(".vc-bubble") + ').display === "none"');
+  check("camera toggle hides bubble", !!bubbleHidden);
+  await clickBar('[data-action="camera"]');
 
   // ---- 6. Popup reflects the recording status
   const popup = await browser.newPage();
@@ -194,7 +192,7 @@ try {
   const shareTabPromise = browser
     .waitForTarget((t) => t.url().includes("/s/"), { timeout: 30000 })
     .catch(() => null);
-  await page.click('#__vc_root [data-action="record"]');
+  await clickBar('[data-action="record"]');
   const shareTarget = await shareTabPromise;
   check("share link opened after stop", !!shareTarget, shareTarget?.url() ?? "no /s/ tab");
 

@@ -5,7 +5,6 @@
 // the recording bar in all tabs). MV3 SWs die at will, so anything here can
 // be rebuilt from storage + the offscreen document at any time.
 
-const API_BASES = ["http://localhost:3000", "https://capca-cam.vercel.app"];
 const STATUS_KEY = "capca:status";
 
 // status: { phase: "idle"|"creating"|"recording"|"paused"|"uploading"|"error",
@@ -69,11 +68,9 @@ async function showControls(tabId, status) {
   try {
     await chrome.tabs.sendMessage(tabId, { type: "vc:show-controls", status });
   } catch {
+    // Tab predates the extension install — inject the content script (styles
+    // load inside its shadow root) and retry.
     try {
-      await chrome.scripting.insertCSS({
-        target: { tabId },
-        files: ["content.css"],
-      });
       await chrome.scripting.executeScript({
         target: { tabId },
         files: ["content.js"],
@@ -131,9 +128,30 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       break;
     case "vc:recording-cancelled":
       void setStatus({ phase: "idle" });
+      void maybeTeardown(msg);
       break;
     case "vc:recording-error":
       void setStatus({ phase: "error", error: msg.error });
+      void maybeTeardown(msg);
+      break;
+    // Uploads are decoupled from the recorder: a new recording may already be
+    // running while a previous one finalizes, so never clobber an active
+    // recording's status with upload progress.
+    case "vc:upload-finalizing":
+      void getStatus().then((s) => {
+        if (!isRecordingPhase(s.phase)) {
+          void setStatus({ phase: "uploading" });
+        }
+      });
+      break;
+    case "vc:upload-finalized":
+      chrome.tabs.create({ url: msg.shareUrl });
+      void getStatus().then((s) => {
+        if (!isRecordingPhase(s.phase)) {
+          void setStatus({ phase: "idle", shareUrl: msg.shareUrl });
+        }
+      });
+      void maybeTeardown(msg);
       break;
     case "vc:recording-complete":
       void handleRecordingComplete(msg);
@@ -141,61 +159,39 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
   }
 });
 
-/** Upload to the Capca API (browser session cookie), fall back to download. */
-async function handleRecordingComplete({ blobUrl, mimeType, durationSec }) {
-  await setStatus({ phase: "uploading" });
+function isRecordingPhase(phase) {
+  return phase === "creating" || phase === "recording" || phase === "paused";
+}
+
+/** Close the offscreen document only when it has nothing left to do. */
+async function maybeTeardown(msg) {
+  if (msg && (msg.recording || msg.uploads > 0)) return;
+  const status = await getStatus();
+  if (isRecordingPhase(status.phase)) return;
+  await teardownOffscreen();
+}
+
+/**
+ * Fallback path: the offscreen uploader couldn't stream (signed out, offline,
+ * or a mid-recording failure with the local copy intact) — save the file
+ * locally instead. Streaming uploads happen in the offscreen document.
+ */
+async function handleRecordingComplete(msg) {
+  const { blobUrl, mimeType } = msg;
   try {
-    const blob = await fetch(blobUrl).then((r) => r.blob());
     const ext = (mimeType || "").includes("mp4") ? "mp4" : "webm";
-
-    for (const base of API_BASES) {
-      try {
-        const create = await fetch(`${base}/api/recordings`, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({
-            title: `Recording ${new Date().toLocaleString()}`,
-            mimeType: mimeType || "video/webm",
-          }),
-        });
-        if (!create.ok) continue;
-
-        const { id, uploadUrl, shareUrl } = await create.json();
-        const put = await fetch(uploadUrl, {
-          method: "PUT",
-          headers: { "Content-Type": mimeType || "video/webm" },
-          body: blob,
-        });
-        if (!put.ok) throw new Error(`upload failed: ${put.status}`);
-
-        await fetch(`${base}/api/recordings/${id}`, {
-          method: "PATCH",
-          headers: { "Content-Type": "application/json" },
-          credentials: "include",
-          body: JSON.stringify({ sizeBytes: blob.size, durationSec }),
-        });
-
-        const absolute = `${base}${shareUrl}`;
-        await setStatus({ phase: "idle", shareUrl: absolute });
-        chrome.tabs.create({ url: absolute });
-        await teardownOffscreen();
-        return;
-      } catch (err) {
-        console.warn("[capca] upload attempt failed for", base, err);
-      }
-    }
-
-    // No session anywhere — keep the recording locally.
     await chrome.downloads.download({
       url: blobUrl,
       filename: `capca-recording-${Date.now()}.${ext}`,
       saveAs: true,
     });
-    await setStatus({ phase: "idle", savedLocally: true });
-    await teardownOffscreen();
+    const status = await getStatus();
+    if (!isRecordingPhase(status.phase)) {
+      await setStatus({ phase: "idle", savedLocally: true });
+    }
+    await maybeTeardown(msg);
   } catch (err) {
-    await setStatus({ phase: "error", error: `upload: ${err.message}` });
+    await setStatus({ phase: "error", error: `save: ${err.message}` });
   }
 }
 

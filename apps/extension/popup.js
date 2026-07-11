@@ -44,18 +44,18 @@ function render(status) {
   const phase = currentStatus.phase;
   const active = phase === "recording" || phase === "paused";
 
-  el.primary.disabled = phase === "creating" || phase === "uploading";
+  // Uploads run in the background — a new recording can start while the
+  // previous one finishes uploading.
+  el.primary.disabled = phase === "creating";
   el.primary.classList.toggle("stop", active);
   el.primary.textContent = active
     ? "Stop recording"
     : phase === "creating"
       ? "Starting..."
-      : phase === "uploading"
-        ? "Uploading..."
-        : "Start recording";
+      : "Start recording";
 
-  el.mic.disabled = phase === "creating" || phase === "uploading";
-  el.camera.disabled = phase === "creating" || phase === "uploading";
+  el.mic.disabled = phase === "creating";
+  el.camera.disabled = phase === "creating";
 
   el.status.textContent =
     phase === "recording"
@@ -63,7 +63,7 @@ function render(status) {
       : phase === "paused"
         ? "Paused"
         : phase === "uploading"
-          ? "Uploading recording"
+          ? "Uploading in background — you can record again"
           : phase === "error"
             ? "Error"
             : "Ready to record";

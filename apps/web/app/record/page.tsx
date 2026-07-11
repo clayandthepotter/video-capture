@@ -29,11 +29,13 @@ export default function RecordPage() {
         return;
       }
       attempts += 1;
-      if (attempts >= 10) {
+      // The extension stamps the page ~2s after load (post-hydration), so
+      // give it a comfortable window before concluding it's absent.
+      if (attempts >= 15) {
         setDetection("missing");
         clearInterval(timer);
       }
-    }, 300);
+    }, 400);
     return () => clearInterval(timer);
   }, []);
 

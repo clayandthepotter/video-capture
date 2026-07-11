@@ -18,5 +18,8 @@ export async function GET(_req: NextRequest, { params }: Params) {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 
-  return NextResponse.redirect(await presignDownload(objectKey(id)), 302);
+  return NextResponse.redirect(
+    await presignDownload(objectKey(id, row.mimeType)),
+    302,
+  );
 }

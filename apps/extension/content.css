@@ -1,7 +1,14 @@
+/* Loaded inside the extension's shadow root — page CSS cannot reach these
+   rules, and `all: initial` blocks inherited page styles at the boundary. */
 #__vc_root {
+  all: initial;
   --vc-bg: rgba(23, 23, 23, 0.96);
   --vc-border: rgba(255, 255, 255, 0.1);
   --vc-accent: #2563eb;
+}
+
+#__vc_root * {
+  box-sizing: border-box;
 }
 
 #__vc_root [hidden] {
@@ -244,4 +251,23 @@
   to {
     transform: rotate(360deg);
   }
+}
+
+#__vc_root .vc-upload {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12px;
+  font-weight: 600;
+  color: #93c5fd;
+  padding: 0 4px;
+}
+
+#__vc_root .vc-spinner-light {
+  width: 11px;
+  height: 11px;
+  border: 2px solid rgba(147, 197, 253, 0.3);
+  border-top-color: #93c5fd;
+  border-radius: 50%;
+  animation: vc-spin 0.7s linear infinite;
 }

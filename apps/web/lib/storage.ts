@@ -1,10 +1,14 @@
 import {
+  AbortMultipartUploadCommand,
+  CompleteMultipartUploadCommand,
   CreateBucketCommand,
+  CreateMultipartUploadCommand,
   DeleteObjectCommand,
   GetObjectCommand,
   HeadBucketCommand,
   PutObjectCommand,
   S3Client,
+  UploadPartCommand,
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 
@@ -33,8 +37,11 @@ export async function ensureBucket() {
   bucketReady = true;
 }
 
-export function objectKey(recordingId: string) {
-  return `${recordingId}.webm`;
+/** Storage key with a format-correct extension (MP4 recordings were
+ * previously stored under `.webm` keys). */
+export function objectKey(recordingId: string, mimeType?: string | null) {
+  const ext = mimeType?.includes("mp4") ? "mp4" : "webm";
+  return `${recordingId}.${ext}`;
 }
 
 export async function presignUpload(key: string, contentType: string) {
@@ -54,4 +61,68 @@ export async function presignDownload(key: string) {
 
 export async function deleteObject(key: string) {
   await s3.send(new DeleteObjectCommand({ Bucket: BUCKET, Key: key }));
+}
+
+// ---- Multipart uploads (upload-while-recording) ----
+
+export async function createMultipartUpload(key: string, contentType: string) {
+  await ensureBucket();
+  const res = await s3.send(
+    new CreateMultipartUploadCommand({
+      Bucket: BUCKET,
+      Key: key,
+      ContentType: contentType,
+    }),
+  );
+  if (!res.UploadId) throw new Error("Storage did not return an upload id");
+  return res.UploadId;
+}
+
+/** Long expiry: parts are signed at recording start and used for its whole
+ * duration. */
+export function presignUploadPart(
+  key: string,
+  uploadId: string,
+  partNumber: number,
+) {
+  return getSignedUrl(
+    s3,
+    new UploadPartCommand({
+      Bucket: BUCKET,
+      Key: key,
+      UploadId: uploadId,
+      PartNumber: partNumber,
+    }),
+    { expiresIn: 6 * 3600 },
+  );
+}
+
+export async function completeMultipartUpload(
+  key: string,
+  uploadId: string,
+  parts: { partNumber: number; etag: string }[],
+) {
+  await s3.send(
+    new CompleteMultipartUploadCommand({
+      Bucket: BUCKET,
+      Key: key,
+      UploadId: uploadId,
+      MultipartUpload: {
+        Parts: parts
+          .slice()
+          .sort((a, b) => a.partNumber - b.partNumber)
+          .map((p) => ({ PartNumber: p.partNumber, ETag: p.etag })),
+      },
+    }),
+  );
+}
+
+export async function abortMultipartUpload(key: string, uploadId: string) {
+  await s3.send(
+    new AbortMultipartUploadCommand({
+      Bucket: BUCKET,
+      Key: key,
+      UploadId: uploadId,
+    }),
+  );
 }

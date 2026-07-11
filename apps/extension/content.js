@@ -8,11 +8,14 @@
 
   // Let the Capca web app detect that the extension is installed (content
   // scripts share the DOM with the page, so a data attribute is visible to
-  // page scripts even though JS worlds are isolated).
-  try {
-    document.documentElement.dataset.capcaExtension =
-      chrome.runtime.getManifest().version;
-  } catch {}
+  // page scripts even though JS worlds are isolated). Delayed so React/SSR
+  // sites finish hydrating before the <html> element changes.
+  setTimeout(() => {
+    try {
+      document.documentElement.dataset.capcaExtension =
+        chrome.runtime.getManifest().version;
+    } catch {}
+  }, 2000);
 
   let mounted = false;
   const UI_STATE_KEY = "capca:ui-state:v1";
@@ -33,14 +36,26 @@
   }
 
   function removeControls() {
-    document.getElementById("__vc_root")?.remove();
+    document.getElementById("__vc_host")?.remove();
     mounted = false;
   }
 
   function mountControls(initialStatus = null) {
-    const existing = document.getElementById("__vc_root");
-    if (existing) return;
+    const existingHost = document.getElementById("__vc_host");
+    if (existingHost) return;
     mounted = true;
+
+    // All UI lives in a shadow root so page CSS can never restyle it (sites
+    // with aggressive button/flex rules were stretching the toolbar) and our
+    // styles can never leak into the page.
+    const host = document.createElement("div");
+    host.id = "__vc_host";
+    const shadow = host.attachShadow({ mode: "open" });
+    const styles = document.createElement("link");
+    styles.rel = "stylesheet";
+    styles.href = chrome.runtime.getURL("content.css");
+    shadow.appendChild(styles);
+    document.documentElement.appendChild(host);
 
   const SVG = {
     record: '<svg viewBox="0 0 24 24" width="14" height="14"><circle cx="12" cy="12" r="7" fill="currentColor"/></svg>',
@@ -65,6 +80,7 @@
 
   const root = document.createElement("div");
   root.id = "__vc_root";
+  shadow.appendChild(root);
 
   // --- camera bubble ---
   const bubble = document.createElement("div");
@@ -83,6 +99,7 @@
     <button class="vc-btn vc-btn-primary" data-action="record">${SVG.record}<span>Record</span></button>
     <button class="vc-btn vc-btn-icon" data-action="pause" title="Pause" hidden>${SVG.pause}</button>
     <span class="vc-timer" hidden>0:00</span>
+    <span class="vc-upload" hidden><span class="vc-spinner-light"></span>Uploading</span>
     <button class="vc-btn vc-btn-icon" data-action="mic" title="Toggle microphone">${SVG.mic}</button>
     <button class="vc-btn vc-btn-icon" data-action="camera" title="Toggle camera">${SVG.cam}</button>
     <span class="vc-divider"></span>
@@ -102,7 +119,6 @@
   countdown.hidden = true;
 
   root.append(bubble, bar, restore, countdown);
-  document.documentElement.appendChild(root);
 
   const el = {
     collapse: bar.querySelector('[data-action="collapse"]'),
@@ -112,6 +128,7 @@
     camera: bar.querySelector('[data-action="camera"]'),
     close: bar.querySelector('[data-action="close"]'),
     timer: bar.querySelector(".vc-timer"),
+    upload: bar.querySelector(".vc-upload"),
   };
 
   function clamp(value, min, max) {
@@ -175,12 +192,11 @@
     el.camera.classList.toggle("vc-btn-off", !camOn);
     bubble.style.display = camOn ? "" : "none";
 
+    // Uploading happens in the background — the record button stays usable.
+    el.upload.hidden = state !== "uploading";
     if (state === "recording" || state === "paused") {
       el.record.innerHTML = `${SVG.stop}<span>Stop</span>`;
       el.record.className = "vc-btn vc-btn-danger";
-    } else if (state === "uploading") {
-      el.record.innerHTML = `<span class="vc-spinner"></span><span>Uploading…</span>`;
-      el.record.className = "vc-btn vc-btn-primary";
     } else if (state === "starting") {
       el.record.innerHTML = `<span>…</span>`;
       el.record.className = "vc-btn vc-btn-primary";
@@ -188,7 +204,7 @@
       el.record.innerHTML = `${SVG.record}<span>Record</span>`;
       el.record.className = "vc-btn vc-btn-primary";
     }
-    el.record.disabled = state === "starting" || state === "uploading";
+    el.record.disabled = state === "starting";
   }
 
   function startTimer() {
@@ -212,7 +228,7 @@
   }
 
   el.record.addEventListener("click", () => {
-    if (state === "idle") {
+    if (state === "idle" || state === "uploading") {
       state = "starting";
       render();
       chrome.runtime.sendMessage({

@@ -59,7 +59,7 @@ export async function DELETE(_req: NextRequest, { params }: Params) {
     return NextResponse.json({ error: "Not found" }, { status: found.error });
   }
 
-  await deleteObject(objectKey(id)).catch(() => {}); // row is source of truth
+  await deleteObject(objectKey(id, found.row.mimeType)).catch(() => {}); // row is source of truth
   await db.delete(recording).where(eq(recording.id, id));
 
   return NextResponse.json({ ok: true });

@@ -23,13 +23,12 @@
     {
       "matches": ["http://*/*", "https://*/*"],
       "js": ["content.js"],
-      "css": ["content.css"],
       "run_at": "document_idle"
     }
   ],
   "web_accessible_resources": [
     {
-      "resources": ["bubble.html", "bubble.js"],
+      "resources": ["bubble.html", "bubble.js", "content.css"],
       "matches": ["<all_urls>"]
     }
   ]
