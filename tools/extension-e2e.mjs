@@ -107,6 +107,11 @@ try {
     .catch(() => false);
   check("signup + session", reachedDashboard, page.url());
 
+  // Enable the "always save a local copy" safety setting for this run.
+  await sw.evaluate(() =>
+    chrome.storage.local.set({ "capca:settings": { keepLocalCopy: true } }),
+  );
+
   // ---- 2. Mount the recording bar on a normal page (the popup does exactly
   // this: a vc:show-controls message to the active tab).
   await page.goto(`${APP}/`, { waitUntil: "networkidle2" });
@@ -214,6 +219,23 @@ try {
     els.some((e) => e.textContent.includes("Recording")),
   );
   check("recording listed in dashboard", listed);
+
+  // ---- 9. "Always save a local copy" downloaded the file too
+  let localCopy = null;
+  for (let i = 0; i < 20 && !localCopy; i++) {
+    const found = await sw.evaluate(async () => {
+      const items = await chrome.downloads.search({ query: ["Capca"] });
+      const done = items.find((d) => d.state === "complete" && d.fileSize > 0);
+      return done ? { file: done.filename, bytes: done.fileSize } : null;
+    });
+    if (found) localCopy = found;
+    else await sleep(500);
+  }
+  check(
+    "local safety copy downloaded",
+    !!localCopy,
+    localCopy ? `${localCopy.bytes} bytes → ${localCopy.file.split(/[\\/]/).slice(-2).join("/")}` : "no completed download",
+  );
 } catch (err) {
   check("run completed", false, err.message);
 } finally {

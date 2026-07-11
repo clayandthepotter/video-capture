@@ -112,3 +112,10 @@ button:disabled {
   min-height: 16px;
   margin-top: 12px;
 }
+
+.hint {
+  margin: -6px 0 0 30px;
+  font-size: 11.5px;
+  line-height: 1.5;
+  color: #8a8f9c;
+}

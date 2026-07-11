@@ -28,8 +28,9 @@ const VIDEO_BITS_PER_SECOND = 3_000_000;
 
 // S3 multipart parts must be >= 5 MiB (except the last); buffer to 8 MiB.
 const PART_SIZE = 8 * 1024 * 1024;
-// Local safety copy cap: beyond this we rely on the streamed upload alone.
-const LOCAL_BACKUP_MAX_BYTES = 512 * 1024 * 1024;
+// Local safety copy cap. MediaRecorder chunks are Blobs, which Chrome backs
+// with disk storage — keeping them does not pin the recording in RAM.
+const LOCAL_BACKUP_MAX_BYTES = 4 * 1024 * 1024 * 1024;
 
 const MP4_MIME_TYPES = {
   withAudio: [
@@ -43,8 +44,9 @@ const WEBM_MIME_TYPES = {
   videoOnly: ["video/webm;codecs=vp9", "video/webm"],
 };
 
-let active = null; // { recorder, streams, micStream, audioCtx, audioNodes, uploader, startedAt, pausedMs, pausedAt }
+let active = null; // { recorder, streams, micStream, audioCtx, audioNodes, uploader, keepLocalCopy, startedAt, pausedMs, pausedAt }
 let uploadsInFlight = 0;
+let pendingLocalSaves = new Map(); // blobUrl -> true (kept alive until the download drains)
 
 /**
  * Streams MediaRecorder chunks to the Capca API as multipart parts during the
@@ -52,9 +54,11 @@ let uploadsInFlight = 0;
  * back to a local download.
  */
 class InstantUploader {
-  constructor(mimeType, title) {
+  constructor(mimeType, title, keepLocalCopy) {
     this.mimeType = mimeType;
     this.title = title;
+    this.keepLocalCopy = keepLocalCopy;
+    this.uploadedBytes = 0;
     this.ready = false; // API session established, streaming enabled
     this.failed = false;
     this.base = null;
@@ -111,7 +115,9 @@ class InstantUploader {
     if (!this.localDropped) {
       this.local.push(chunk);
       this.localBytes += chunk.size;
-      if (this.localBytes > LOCAL_BACKUP_MAX_BYTES) {
+      // The safety copy is never dropped when the user asked for a local
+      // file; otherwise it's capped as a fallback-only buffer.
+      if (!this.keepLocalCopy && this.localBytes > LOCAL_BACKUP_MAX_BYTES) {
         this.local = [];
         this.localBytes = 0;
         this.localDropped = true;
@@ -150,6 +156,11 @@ class InstantUploader {
       const etag = put.headers.get("ETag");
       if (!etag) throw new Error("no ETag on part response");
       this.parts.push({ partNumber, etag });
+      this.uploadedBytes += blob.size;
+      chrome.runtime.sendMessage({
+        type: "vc:upload-progress",
+        uploadedBytes: this.uploadedBytes,
+      }).catch?.(() => {});
     } catch (err) {
       if (attempt < 3) {
         await new Promise((r) => setTimeout(r, attempt * 1500));
@@ -243,12 +254,18 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     case "vc:offscreen-get-status":
       sendResponse({ status: currentStatus() });
       break;
+    case "vc:offscreen-local-saved":
+      // The SW confirmed the download drained — safe to release the blob.
+      if (pendingLocalSaves.delete(msg.blobUrl)) {
+        URL.revokeObjectURL(msg.blobUrl);
+      }
+      break;
   }
 });
 
 function currentStatus() {
   if (!active) {
-    return uploadsInFlight > 0
+    return uploadsInFlight > 0 || pendingLocalSaves.size > 0
       ? { phase: "uploading" }
       : { phase: "idle" };
   }
@@ -311,8 +328,8 @@ function pickMimeType(hasAudio) {
   return "";
 }
 
-async function start({ withMic }) {
-  console.log("[capca] offscreen start", { withMic });
+async function start({ withMic, keepLocalCopy }) {
+  console.log("[capca] offscreen start", { withMic, keepLocalCopy });
   if (active) {
     chrome.runtime.sendMessage({
       type: "vc:recording-error",
@@ -397,6 +414,7 @@ async function start({ withMic }) {
     const uploader = new InstantUploader(
       recorder.mimeType || mimeType || "video/webm",
       `Recording ${new Date().toLocaleString()}`,
+      Boolean(keepLocalCopy),
     );
 
     recorder.ondataavailable = (e) => {
@@ -448,6 +466,29 @@ async function finishRecording(session) {
   try {
     const result = await session.uploader.finalize(durationSec);
     uploadsInFlight -= 1;
+
+    // "Always save a local copy": download regardless of upload outcome —
+    // unless the fallback path below is already downloading the same bytes.
+    if (
+      session.uploader.keepLocalCopy &&
+      !session.uploader.localDropped &&
+      !result.fallbackBlob
+    ) {
+      const localBlob = new Blob(
+        [...session.uploader.local, ...session.uploader.buffer],
+        { type: session.uploader.mimeType },
+      );
+      if (localBlob.size > 0) {
+        const blobUrl = URL.createObjectURL(localBlob);
+        pendingLocalSaves.set(blobUrl, true);
+        chrome.runtime.sendMessage({
+          type: "vc:save-local-copy",
+          blobUrl,
+          mimeType: session.uploader.mimeType,
+          title: session.uploader.title,
+        });
+      }
+    }
 
     if (result.shareUrl) {
       session.uploader.discardLocal();

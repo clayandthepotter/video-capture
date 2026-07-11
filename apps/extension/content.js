@@ -365,6 +365,11 @@
         state = "uploading";
         render();
         break;
+      case "vc:upload-progress":
+        if (!el.upload.hidden && typeof msg.uploadedBytes === "number") {
+          el.upload.lastChild.textContent = ` Uploading · ${Math.round(msg.uploadedBytes / (1024 * 1024))} MB`;
+        }
+        break;
       case "vc:upload-complete":
         state = "idle";
         seconds = 0;

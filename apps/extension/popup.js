@@ -2,10 +2,23 @@ const el = {
   status: document.getElementById("status"),
   mic: document.getElementById("mic"),
   camera: document.getElementById("camera"),
+  keepLocal: document.getElementById("keep-local"),
   primary: document.getElementById("primary"),
   controls: document.getElementById("open-controls"),
   message: document.getElementById("message"),
 };
+
+const SETTINGS_KEY = "capca:settings";
+
+void chrome.storage.local.get(SETTINGS_KEY).then((store) => {
+  el.keepLocal.checked = Boolean(store[SETTINGS_KEY]?.keepLocalCopy);
+});
+
+el.keepLocal.addEventListener("change", () => {
+  void chrome.storage.local.set({
+    [SETTINGS_KEY]: { keepLocalCopy: el.keepLocal.checked },
+  });
+});
 
 let currentStatus = { phase: "idle" };
 

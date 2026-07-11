@@ -89,10 +89,15 @@ async function startRecording({
   const [activeTab] = await chrome.tabs.query({ active: true, currentWindow: true });
   await showControls(activeTab?.id, { phase: "creating", withMic, withCamera });
 
+  const settings = (await chrome.storage.local.get("capca:settings"))[
+    "capca:settings"
+  ];
+
   await ensureOffscreen();
   chrome.runtime.sendMessage({
     type: "vc:offscreen-start",
     withMic,
+    keepLocalCopy: Boolean(settings?.keepLocalCopy),
   });
 }
 
@@ -128,11 +133,17 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       break;
     case "vc:recording-cancelled":
       void setStatus({ phase: "idle" });
-      void maybeTeardown(msg);
+      void maybeTeardown();
       break;
     case "vc:recording-error":
       void setStatus({ phase: "error", error: msg.error });
-      void maybeTeardown(msg);
+      void maybeTeardown();
+      break;
+    case "vc:upload-progress":
+      void broadcastToTabs(msg);
+      break;
+    case "vc:save-local-copy":
+      void saveLocalCopy(msg, sender);
       break;
     // Uploads are decoupled from the recorder: a new recording may already be
     // running while a previous one finalizes, so never clobber an active
@@ -151,7 +162,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
           void setStatus({ phase: "idle", shareUrl: msg.shareUrl });
         }
       });
-      void maybeTeardown(msg);
+      void maybeTeardown();
       break;
     case "vc:recording-complete":
       void handleRecordingComplete(msg);
@@ -163,12 +174,69 @@ function isRecordingPhase(phase) {
   return phase === "creating" || phase === "recording" || phase === "paused";
 }
 
-/** Close the offscreen document only when it has nothing left to do. */
-async function maybeTeardown(msg) {
-  if (msg && (msg.recording || msg.uploads > 0)) return;
+async function broadcastToTabs(msg) {
+  const tabs = await chrome.tabs.query({});
+  for (const tab of tabs) {
+    if (tab.id != null) {
+      chrome.tabs.sendMessage(tab.id, msg).catch(() => {});
+    }
+  }
+}
+
+/**
+ * Close the offscreen document only when it has nothing left to do — the
+ * offscreen document is the ground truth (its status covers the active
+ * recording, in-flight uploads, and pending local saves).
+ */
+async function maybeTeardown() {
+  if (!(await hasOffscreen())) return;
+  try {
+    const real = await chrome.runtime.sendMessage({
+      type: "vc:offscreen-get-status",
+    });
+    if (real?.status && real.status.phase !== "idle") return;
+  } catch {
+    return; // can't confirm it's idle — leave it alone
+  }
   const status = await getStatus();
   if (isRecordingPhase(status.phase)) return;
   await teardownOffscreen();
+}
+
+/**
+ * "Always save a local copy": download silently to Downloads/Capca and tell
+ * the offscreen document when the stream has fully drained so it can release
+ * the blob and, eventually, be torn down.
+ */
+async function saveLocalCopy({ blobUrl, mimeType, title }) {
+  const ext = (mimeType || "").includes("mp4") ? "mp4" : "webm";
+  const safeTitle = (title || `recording-${Date.now()}`)
+    .replace(/[<>:"/\\|?*]+/g, "-")
+    .slice(0, 80);
+  try {
+    const downloadId = await chrome.downloads.download({
+      url: blobUrl,
+      filename: `Capca/${safeTitle}.${ext}`,
+      saveAs: false,
+      conflictAction: "uniquify",
+    });
+    const onChanged = (delta) => {
+      if (delta.id !== downloadId || !delta.state) return;
+      if (delta.state.current === "complete" || delta.state.current === "interrupted") {
+        chrome.downloads.onChanged.removeListener(onChanged);
+        chrome.runtime
+          .sendMessage({ type: "vc:offscreen-local-saved", blobUrl })
+          .catch(() => {});
+        void maybeTeardown();
+      }
+    };
+    chrome.downloads.onChanged.addListener(onChanged);
+  } catch (err) {
+    console.warn("[capca] local copy failed:", err);
+    chrome.runtime
+      .sendMessage({ type: "vc:offscreen-local-saved", blobUrl })
+      .catch(() => {});
+  }
 }
 
 /**
@@ -189,7 +257,7 @@ async function handleRecordingComplete(msg) {
     if (!isRecordingPhase(status.phase)) {
       await setStatus({ phase: "idle", savedLocally: true });
     }
-    await maybeTeardown(msg);
+    await maybeTeardown();
   } catch (err) {
     await setStatus({ phase: "error", error: `save: ${err.message}` });
   }
