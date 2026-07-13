@@ -37,6 +37,8 @@ Updated: 2026-07-13
 
 ## Done
 
+- [x] Replaced the homepage recorder demo's personal signed-in example with a
+  neutral sample user name.
 - [x] Replaced the marketing recorder image with an interactive widget that
   matches the extension launcher controls and visual states, including
   destination switching, local-copy state, recording controls, and a preview

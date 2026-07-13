@@ -355,7 +355,7 @@ export function MarketingRecorderWidget() {
         </label>
 
         <p className="mt-3 truncate text-xs font-bold text-slate-500">
-          Signed in as: Clayton Prickett
+          Signed in as: Alex Rivera
         </p>
 
         <div className="mt-4 grid gap-2">
