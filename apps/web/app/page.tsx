@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { headers } from "next/headers";
 import { BrandLogo } from "@/components/brand-logo";
+import { MarketingRecorderWidget } from "@/components/marketing-recorder-widget";
 import { auth } from "@/lib/auth";
 
 const GITHUB_URL = "https://github.com/clayandthepotter/capca";
@@ -108,126 +109,6 @@ async function Header() {
   );
 }
 
-function RecorderMockup() {
-  const rows = [
-    ["Screen", "Ready"],
-    ["Camera", "On"],
-    ["Microphone", "Ready"],
-    ["Destination", "Google Drive"],
-  ];
-
-  return (
-    <div className="relative mx-auto mt-14 grid max-w-6xl gap-5 lg:grid-cols-[0.92fr_1.08fr]">
-      <div className="rounded-xl border border-slate-200 bg-white p-4 shadow-[0_24px_70px_-45px_rgba(15,23,42,0.45)]">
-        <div className="flex items-center justify-between border-b border-slate-100 pb-4">
-          <div>
-            <p className="text-sm font-semibold text-slate-950">Recorder</p>
-            <p className="mt-1 text-xs text-slate-500">
-              Check permissions before capture starts.
-            </p>
-          </div>
-          <span className="rounded-md bg-slate-100 px-2 py-1 text-xs font-medium text-slate-600">
-            Free with Drive
-          </span>
-        </div>
-
-        <div className="mt-4 space-y-3">
-          {rows.map(([label, value]) => (
-            <div
-              key={label}
-              className="flex items-center justify-between rounded-lg border border-slate-200 bg-slate-50 px-3 py-3"
-            >
-              <div className="flex items-center gap-3">
-                <span className="grid h-8 w-8 place-items-center rounded-md bg-white text-blue-600 shadow-sm">
-                  <Icon className="h-4 w-4">
-                    {label === "Destination" ? icons.drive : icons.screen}
-                  </Icon>
-                </span>
-                <span className="text-sm font-medium text-slate-800">
-                  {label}
-                </span>
-              </div>
-              <span className="text-sm font-semibold text-slate-950">
-                {value}
-              </span>
-            </div>
-          ))}
-        </div>
-
-        <button className="mt-4 flex w-full items-center justify-center gap-2 rounded-lg bg-blue-600 px-5 py-3 text-sm font-semibold text-white shadow-sm">
-          Start recording
-          <Icon className="h-4 w-4">{icons.arrow}</Icon>
-        </button>
-
-        <div className="mt-4 rounded-lg border border-blue-100 bg-blue-50 px-3 py-3">
-          <div className="flex items-center justify-between text-xs font-semibold text-blue-900">
-            <span>Saving to Drive</span>
-            <span>68%</span>
-          </div>
-          <div className="mt-2 h-2 rounded-full bg-blue-100">
-            <div className="h-2 w-[68%] rounded-full bg-blue-600" />
-          </div>
-        </div>
-      </div>
-
-      <div className="overflow-hidden rounded-xl border border-slate-200 bg-slate-950 shadow-[0_24px_70px_-45px_rgba(15,23,42,0.65)]">
-        <div className="flex h-11 items-center gap-2 border-b border-white/10 bg-slate-900 px-4">
-          <span className="h-2.5 w-2.5 rounded-full bg-red-400" />
-          <span className="h-2.5 w-2.5 rounded-full bg-amber-300" />
-          <span className="h-2.5 w-2.5 rounded-full bg-green-400" />
-          <div className="ml-3 flex h-6 flex-1 items-center rounded-md bg-white/7 px-3 text-xs text-slate-400">
-            app.capca.local/record
-          </div>
-        </div>
-        <div className="relative min-h-[320px] p-5">
-          <div className="grid h-full min-h-[280px] grid-cols-[160px_1fr] overflow-hidden rounded-lg border border-white/10 bg-slate-900">
-            <div className="hidden border-r border-white/10 p-4 sm:block">
-              <div className="h-2 w-20 rounded bg-white/20" />
-              <div className="mt-5 space-y-3">
-                <div className="h-2 w-24 rounded bg-white/10" />
-                <div className="h-2 w-16 rounded bg-white/10" />
-                <div className="h-2 w-28 rounded bg-white/10" />
-              </div>
-            </div>
-            <div className="p-5">
-              <div className="h-3 w-52 rounded bg-white/20" />
-              <div className="mt-3 h-2 w-72 max-w-full rounded bg-white/10" />
-              <div className="mt-6 grid gap-3 sm:grid-cols-3">
-                {[1, 2, 3].map((item) => (
-                  <div
-                    key={item}
-                    className="rounded-lg border border-white/10 bg-white/[0.04] p-3"
-                  >
-                    <div className="h-2 w-12 rounded bg-white/20" />
-                    <div className="mt-3 h-8 rounded bg-blue-400/20" />
-                  </div>
-                ))}
-              </div>
-              <div className="mt-4 h-24 rounded-lg border border-white/10 bg-white/[0.03]" />
-            </div>
-          </div>
-          <div className="absolute bottom-8 left-8 h-24 w-24 overflow-hidden rounded-full border-4 border-white bg-slate-700 shadow-xl">
-            <div className="grid h-full w-full place-items-center bg-gradient-to-br from-slate-600 to-slate-800 text-slate-300">
-              <svg viewBox="0 0 24 24" className="h-12 w-12" fill="currentColor">
-                <circle cx="12" cy="9" r="4" />
-                <path d="M4 21c0-4 3.6-6.5 8-6.5s8 2.5 8 6.5" />
-              </svg>
-            </div>
-          </div>
-          <div className="absolute bottom-8 right-8 rounded-lg border border-white/10 bg-white px-4 py-3 text-left shadow-xl">
-            <p className="text-xs font-semibold text-slate-950">
-              Recording saved
-            </p>
-            <p className="mt-1 text-xs text-slate-500">
-              Stored in Google Drive
-            </p>
-          </div>
-        </div>
-      </div>
-    </div>
-  );
-}
-
 function Hero() {
   return (
     <section className="px-5 pb-20 pt-20 sm:px-6 sm:pt-28">
@@ -259,7 +140,7 @@ function Hero() {
           tiers are for Capca-hosted storage, AI processing Capca pays for,
           teams, and automation.
         </p>
-        <RecorderMockup />
+        <MarketingRecorderWidget />
       </div>
     </section>
   );

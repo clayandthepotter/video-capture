@@ -37,6 +37,10 @@ Updated: 2026-07-13
 
 ## Done
 
+- [x] Replaced the marketing recorder image with an interactive widget that
+  matches the extension launcher controls and visual states, including
+  destination switching, local-copy state, recording controls, and a preview
+  surface.
 - [x] Kept recording controls and the presenter bubble synced onto the active
   tab when switching tabs, loading a new active tab, or focusing another
   browser window during an active recording.
