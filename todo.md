@@ -4,7 +4,6 @@ Updated: 2026-07-13
 
 ## In Progress
 
-- [ ] Set up and verify Google Drive OAuth capability for production recording exports.
 - [ ] Stabilize the Chrome extension refactor so manifest, popup/control UI,
   content script, background status machine, and offscreen recorder agree.
 - [ ] Verify the current web record/upload/share/delete loop against local
@@ -38,6 +37,10 @@ Updated: 2026-07-13
 
 ## Done
 
+- [x] Set up Google Drive OAuth capability for production: verified Drive API
+  enabled, refreshed Google OAuth credentials in Vercel Production, redeployed
+  `capca-cam.vercel.app`, and confirmed the dashboard shows Drive connected to
+  "Capca Recordings".
 - [x] Standardized Capca logo references across web app pages, favicon-aligned
   SVG assets, dashboard, auth surfaces, share pages, and extension UI.
 - [x] Allowed trusted same-email OAuth account linking across email, Google,
