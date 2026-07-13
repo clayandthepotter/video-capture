@@ -37,6 +37,9 @@ Updated: 2026-07-13
 
 ## Done
 
+- [x] Reviewed the public rounded-popup example repo and confirmed it uses
+  `chrome.action.onClicked` plus `chrome.scripting.executeScript` to inject a
+  fixed page overlay instead of using Chrome's native `default_popup`.
 - [x] Reviewed Chrome content-script and Declarative Shadow DOM docs and
   verified that true Loom-style outside popup rounding requires an injected
   page overlay, not the native Chrome action popup.
