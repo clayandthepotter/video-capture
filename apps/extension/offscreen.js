@@ -7,12 +7,14 @@
 //   ids, no activeTab grant dependency between recordings.
 // - camera bubble: preview iframe in the captured page; mic is captured here.
 // - MP4 (H.264/AAC) preferred, WebM fallback.
-// - Instant sharing: chunks stream to storage as S3 multipart parts WHILE
-//   recording, so stopping only has to flush the tail and complete the upload.
-//   Uploads are independent of the recorder — a new recording can start while
-//   the previous one finishes uploading.
+// - Instant sharing: chunks stream to storage WHILE recording, so stopping
+//   only has to flush the tail. Uploads are independent of the recorder — a
+//   new recording can start while the previous one finishes uploading.
+// - Three destinations: "capca" (our R2/S3 bucket, multipart, parallel parts),
+//   "drive" (the user's own Google Drive, resumable upload), and "local"
+//   (no cloud at all — just a silent download).
 
-const API_BASES = ["http://localhost:3000", "https://capca-cam.vercel.app"];
+// API_BASES comes from shared-config.js, loaded before this script.
 
 const DISPLAY_IDEAL = { width: 1920, height: 1080, frameRate: 30 };
 
@@ -28,9 +30,18 @@ const VIDEO_BITS_PER_SECOND = 3_000_000;
 
 // S3 multipart parts must be >= 5 MiB (except the last); buffer to 8 MiB.
 const PART_SIZE = 8 * 1024 * 1024;
+// Google Drive resumable uploads require every intermediate chunk to be a
+// multiple of 256 KiB. 8 MiB is exactly 32 * 256 KiB, so the same threshold
+// works for both — the Drive uploader still aligns explicitly (see below) in
+// case buffered chunk boundaries don't land exactly on it.
+const DRIVE_CHUNK_ALIGNMENT = 256 * 1024;
 // Local safety copy cap. MediaRecorder chunks are Blobs, which Chrome backs
 // with disk storage — keeping them does not pin the recording in RAM.
 const LOCAL_BACKUP_MAX_BYTES = 4 * 1024 * 1024 * 1024;
+// How many S3 parts to upload concurrently — the real lever for large
+// recordings: multiple parallel HTTP streams reach higher aggregate
+// throughput than one connection can alone (standard S3 multipart advice).
+const MAX_CONCURRENT_PARTS = 4;
 
 const MP4_MIME_TYPES = {
   withAudio: [
@@ -44,36 +55,79 @@ const WEBM_MIME_TYPES = {
   videoOnly: ["video/webm;codecs=vp9", "video/webm"],
 };
 
-let active = null; // { recorder, streams, micStream, audioCtx, audioNodes, uploader, keepLocalCopy, startedAt, pausedMs, pausedAt }
+let active = null; // { recorder, streams, micStream, audioCtx, audioNodes, uploader, startedAt, pausedMs, pausedAt }
 let uploadsInFlight = 0;
 let pendingLocalSaves = new Map(); // blobUrl -> true (kept alive until the download drains)
 
+function postProgress(uploadedBytes) {
+  chrome.runtime
+    .sendMessage({ type: "vc:upload-progress", uploadedBytes })
+    .catch(() => {});
+}
+
 /**
- * Streams MediaRecorder chunks to the Capca API as multipart parts during the
- * recording. Keeps a capped local copy so an upload failure can still fall
- * back to a local download.
+ * Shared local-safety-buffer bookkeeping. Subclasses implement the actual
+ * network transport by overriding `onChunk()` and `finalize()`.
  */
-class InstantUploader {
+class BaseUploader {
   constructor(mimeType, title, keepLocalCopy) {
     this.mimeType = mimeType;
     this.title = title;
     this.keepLocalCopy = keepLocalCopy;
+    this.totalBytes = 0;
+    this.local = [];
+    this.localBytes = 0;
+    this.localDropped = false;
+    this.buffer = [];
+    this.bufferBytes = 0;
     this.uploadedBytes = 0;
-    this.ready = false; // API session established, streaming enabled
+  }
+
+  add(chunk) {
+    this.buffer.push(chunk);
+    this.bufferBytes += chunk.size;
+    this.totalBytes += chunk.size;
+    if (!this.localDropped) {
+      this.local.push(chunk);
+      this.localBytes += chunk.size;
+      // The safety copy is never dropped when the user asked for a local
+      // file (or the destination IS local); otherwise it's a capped
+      // fallback-only buffer.
+      if (!this.keepLocalCopy && this.localBytes > LOCAL_BACKUP_MAX_BYTES) {
+        this.local = [];
+        this.localBytes = 0;
+        this.localDropped = true;
+      }
+    }
+    this.onChunk();
+  }
+
+  onChunk() {} // override: react to new buffered bytes
+
+  discardLocal() {
+    this.local = [];
+    this.localBytes = 0;
+  }
+}
+
+/** Destination: "capca" — our R2/S3 bucket via S3 multipart upload, parts
+ * uploaded concurrently for throughput. */
+class CapcaUploader extends BaseUploader {
+  constructor(mimeType, title, keepLocalCopy) {
+    super(mimeType, title, keepLocalCopy);
+    this.destination = "capca";
+    this.ready = false;
     this.failed = false;
+    this.errorMessage = null;
     this.base = null;
     this.id = null;
     this.uploadId = null;
     this.shareUrl = null;
     this.parts = []; // { partNumber, etag }
     this.nextPartNumber = 1;
-    this.chain = Promise.resolve();
-    this.buffer = [];
-    this.bufferBytes = 0;
-    this.totalBytes = 0;
-    this.local = [];
-    this.localBytes = 0;
-    this.localDropped = false;
+    this.activeCount = 0;
+    this.queue = [];
+    this.pendingCount = 0;
     this.initPromise = this.#init();
   }
 
@@ -87,9 +141,16 @@ class InstantUploader {
           body: JSON.stringify({
             title: this.title,
             mimeType: this.mimeType,
+            destination: "capca",
             multipart: true,
           }),
         });
+        if (res.status === 409) {
+          const data = await res.json().catch(() => ({}));
+          this.failed = true;
+          this.errorMessage = data.message || "Capca Cloud storage is full.";
+          return;
+        }
         if (!res.ok) continue;
         const data = await res.json();
         this.base = base;
@@ -104,25 +165,11 @@ class InstantUploader {
         // API unreachable — try the next base.
       }
     }
-    this.failed = true; // signed out or offline: record locally, download on stop
+    this.failed = true; // signed out or offline: fall back to local
     console.warn("[capca] no API session — will fall back to local download");
   }
 
-  add(chunk) {
-    this.buffer.push(chunk);
-    this.bufferBytes += chunk.size;
-    this.totalBytes += chunk.size;
-    if (!this.localDropped) {
-      this.local.push(chunk);
-      this.localBytes += chunk.size;
-      // The safety copy is never dropped when the user asked for a local
-      // file; otherwise it's capped as a fallback-only buffer.
-      if (!this.keepLocalCopy && this.localBytes > LOCAL_BACKUP_MAX_BYTES) {
-        this.local = [];
-        this.localBytes = 0;
-        this.localDropped = true;
-      }
-    }
+  onChunk() {
     this.#maybeFlush(false);
   }
 
@@ -134,7 +181,25 @@ class InstantUploader {
     this.buffer = [];
     this.bufferBytes = 0;
     const partNumber = this.nextPartNumber++;
-    this.chain = this.chain.then(() => this.#uploadPart(part, partNumber));
+    this.pendingCount++;
+    this.queue.push({ blob: part, partNumber });
+    this.#pump();
+  }
+
+  #pump() {
+    while (
+      !this.failed &&
+      this.activeCount < MAX_CONCURRENT_PARTS &&
+      this.queue.length > 0
+    ) {
+      const job = this.queue.shift();
+      this.activeCount++;
+      this.#uploadPart(job.blob, job.partNumber).finally(() => {
+        this.activeCount--;
+        this.pendingCount--;
+        this.#pump();
+      });
+    }
   }
 
   async #uploadPart(blob, partNumber, attempt = 1) {
@@ -157,10 +222,7 @@ class InstantUploader {
       if (!etag) throw new Error("no ETag on part response");
       this.parts.push({ partNumber, etag });
       this.uploadedBytes += blob.size;
-      chrome.runtime.sendMessage({
-        type: "vc:upload-progress",
-        uploadedBytes: this.uploadedBytes,
-      }).catch?.(() => {});
+      postProgress(this.uploadedBytes);
     } catch (err) {
       if (attempt < 3) {
         await new Promise((r) => setTimeout(r, attempt * 1500));
@@ -171,13 +233,17 @@ class InstantUploader {
     }
   }
 
-  /** Returns { shareUrl } on success, or { fallbackBlob } when streaming
-   * failed but the local copy is intact, or { lost: true } as the worst case. */
+  async #drain() {
+    while (this.pendingCount > 0) {
+      await new Promise((r) => setTimeout(r, 100));
+    }
+  }
+
   async finalize(durationSec) {
     await this.initPromise;
     if (this.ready && !this.failed) {
       this.#maybeFlush(true);
-      await this.chain;
+      await this.#drain();
     }
     if (this.ready && !this.failed && this.parts.length > 0) {
       try {
@@ -214,14 +280,233 @@ class InstantUploader {
     }
     if (!this.localDropped) {
       const all = [...this.local, ...this.buffer];
-      return { fallbackBlob: new Blob(all, { type: this.mimeType }) };
+      return {
+        fallbackBlob: new Blob(all, { type: this.mimeType }),
+        errorMessage: this.errorMessage,
+      };
     }
-    return { lost: true };
+    return { lost: true, errorMessage: this.errorMessage };
+  }
+}
+
+/** Destination: "drive" — the user's own Google Drive via a resumable
+ * upload session. Drive's protocol requires sequential, 256KiB-aligned
+ * chunks, so (unlike Capca/S3) this cannot be parallelized. */
+class DriveUploader extends BaseUploader {
+  constructor(mimeType, title, keepLocalCopy) {
+    super(mimeType, title, keepLocalCopy);
+    this.destination = "drive";
+    this.ready = false;
+    this.failed = false;
+    this.errorMessage = null;
+    this.base = null;
+    this.id = null;
+    this.driveUploadUrl = null;
+    this.bytesSent = 0;
+    this.chain = Promise.resolve();
+    this.driveFileId = null;
+    this.driveWebViewLink = null;
+    this.initPromise = this.#init();
   }
 
-  discardLocal() {
-    this.local = [];
-    this.localBytes = 0;
+  async #init() {
+    for (const base of API_BASES) {
+      try {
+        const res = await fetch(`${base}/api/recordings`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            title: this.title,
+            mimeType: this.mimeType,
+            destination: "drive",
+          }),
+        });
+        if (res.status === 409) {
+          const data = await res.json().catch(() => ({}));
+          this.failed = true;
+          this.errorMessage =
+            data.message || "Connect Google Drive in Settings first.";
+          return;
+        }
+        if (!res.ok) continue;
+        const data = await res.json();
+        this.base = base;
+        this.id = data.id;
+        this.driveUploadUrl = data.driveUploadUrl;
+        this.ready = true;
+        this.onChunk();
+        return;
+      } catch {
+        // try next base
+      }
+    }
+    this.failed = true;
+  }
+
+  onChunk() {
+    this.#maybeFlush(false);
+  }
+
+  #maybeFlush(isLast) {
+    if (!this.ready || this.failed) return;
+    if (isLast) {
+      if (this.bufferBytes === 0) {
+        if (this.bytesSent === 0) return; // nothing recorded at all
+        this.chain = this.chain.then(() => this.#finalizeEmpty());
+        return;
+      }
+      const finalBlob = new Blob(this.buffer, { type: this.mimeType });
+      this.buffer = [];
+      this.bufferBytes = 0;
+      this.chain = this.chain.then(() => this.#uploadChunk(finalBlob, true));
+      return;
+    }
+    if (this.bufferBytes < PART_SIZE) return;
+    const combined = new Blob(this.buffer, { type: this.mimeType });
+    const alignedSize =
+      Math.floor(combined.size / DRIVE_CHUNK_ALIGNMENT) * DRIVE_CHUNK_ALIGNMENT;
+    if (alignedSize === 0) return;
+    const toSend = combined.slice(0, alignedSize, this.mimeType);
+    const remainder = combined.slice(alignedSize);
+    this.buffer = remainder.size > 0 ? [remainder] : [];
+    this.bufferBytes = remainder.size;
+    this.chain = this.chain.then(() => this.#uploadChunk(toSend, false));
+  }
+
+  async #uploadChunk(blob, isLast, attempt = 1) {
+    if (this.failed) return;
+    const start = this.bytesSent;
+    const end = start + blob.size - 1;
+    const total = isLast ? String(start + blob.size) : "*";
+    try {
+      const res = await fetch(this.driveUploadUrl, {
+        method: "PUT",
+        headers: {
+          "Content-Length": String(blob.size),
+          "Content-Range": `bytes ${start}-${end}/${total}`,
+        },
+        body: blob,
+      });
+      if (isLast) {
+        if (!res.ok) throw new Error(`drive final put: ${res.status}`);
+        const data = await res.json();
+        this.driveFileId = data.id;
+        this.driveWebViewLink = data.webViewLink;
+      } else if (res.status !== 308 && !res.ok) {
+        throw new Error(`drive put: ${res.status}`);
+      }
+      this.bytesSent += blob.size;
+      this.uploadedBytes = this.bytesSent;
+      postProgress(this.uploadedBytes);
+    } catch (err) {
+      if (attempt < 3) {
+        await new Promise((r) => setTimeout(r, attempt * 1500));
+        return this.#uploadChunk(blob, isLast, attempt + 1);
+      }
+      console.error("[capca] drive chunk failed permanently:", err);
+      this.failed = true;
+    }
+  }
+
+  async #finalizeEmpty() {
+    try {
+      const res = await fetch(this.driveUploadUrl, {
+        method: "PUT",
+        headers: { "Content-Range": `bytes */${this.bytesSent}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        this.driveFileId = data.id;
+        this.driveWebViewLink = data.webViewLink;
+      } else {
+        this.failed = true;
+      }
+    } catch {
+      this.failed = true;
+    }
+  }
+
+  async finalize(durationSec) {
+    await this.initPromise;
+    if (this.ready && !this.failed) {
+      this.#maybeFlush(true);
+      await this.chain;
+    }
+    if (this.ready && !this.failed && this.driveFileId) {
+      try {
+        await fetch(`${this.base}/api/recordings/${this.id}`, {
+          method: "PATCH",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            sizeBytes: this.totalBytes,
+            durationSec,
+            driveFileId: this.driveFileId,
+            driveWebViewLink: this.driveWebViewLink,
+          }),
+        });
+        return { driveWebViewLink: this.driveWebViewLink };
+      } catch (err) {
+        console.error("[capca] drive finalize PATCH failed:", err);
+        this.failed = true;
+      }
+    }
+
+    // Streaming didn't work out — remove the stray "uploading" row rather
+    // than leaving it stuck forever (the exact failure this replaced).
+    if (this.id && this.base) {
+      void fetch(`${this.base}/api/recordings/${this.id}/abort`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({}),
+      }).catch(() => {});
+    }
+    if (!this.localDropped) {
+      const all = [...this.local, ...this.buffer];
+      return {
+        fallbackBlob: new Blob(all, { type: this.mimeType }),
+        errorMessage: this.errorMessage,
+      };
+    }
+    return { lost: true, errorMessage: this.errorMessage };
+  }
+}
+
+/** Destination: "local" — no cloud storage at all. A library row is created
+ * for visibility (status "ready" immediately, nothing to upload), and the
+ * recording is always saved to disk on stop. */
+class LocalOnlyUploader extends BaseUploader {
+  constructor(mimeType, title) {
+    super(mimeType, title, true); // never cap the local buffer
+    this.destination = "local";
+    this.initPromise = this.#createRow();
+  }
+
+  async #createRow() {
+    for (const base of API_BASES) {
+      try {
+        const res = await fetch(`${base}/api/recordings`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          credentials: "include",
+          body: JSON.stringify({
+            title: this.title,
+            mimeType: this.mimeType,
+            destination: "local",
+          }),
+        });
+        if (res.ok) return;
+      } catch {
+        // Not signed in / offline — the download still happens either way.
+      }
+    }
+  }
+
+  async finalize() {
+    await this.initPromise;
+    return {}; // the caller always downloads local-destination recordings
   }
 }
 
@@ -328,8 +613,14 @@ function pickMimeType(hasAudio) {
   return "";
 }
 
-async function start({ withMic, keepLocalCopy }) {
-  console.log("[capca] offscreen start", { withMic, keepLocalCopy });
+function createUploader(destination, mimeType, title, keepLocalCopy) {
+  if (destination === "drive") return new DriveUploader(mimeType, title, keepLocalCopy);
+  if (destination === "local") return new LocalOnlyUploader(mimeType, title);
+  return new CapcaUploader(mimeType, title, keepLocalCopy);
+}
+
+async function start({ withMic, keepLocalCopy, destination }) {
+  console.log("[capca] offscreen start", { withMic, keepLocalCopy, destination });
   if (active) {
     chrome.runtime.sendMessage({
       type: "vc:recording-error",
@@ -410,8 +701,9 @@ async function start({ withMic, keepLocalCopy }) {
     });
 
     // Start streaming the upload immediately — the share link exists before
-    // the first frame is captured.
-    const uploader = new InstantUploader(
+    // the first frame is captured (destination permitting).
+    const uploader = createUploader(
+      destination || "capca",
       recorder.mimeType || mimeType || "video/webm",
       `Recording ${new Date().toLocaleString()}`,
       Boolean(keepLocalCopy),
@@ -467,13 +759,17 @@ async function finishRecording(session) {
     const result = await session.uploader.finalize(durationSec);
     uploadsInFlight -= 1;
 
-    // "Always save a local copy": download regardless of upload outcome —
+    // "Always save a local copy" (or an intentionally local-only recording)
+    // downloads silently to Downloads/Capca regardless of upload outcome —
     // unless the fallback path below is already downloading the same bytes.
-    if (
-      session.uploader.keepLocalCopy &&
-      !session.uploader.localDropped &&
-      !result.fallbackBlob
-    ) {
+    const wantsSilentLocalSave =
+      session.uploader.destination === "local" ||
+      (session.uploader.keepLocalCopy &&
+        !session.uploader.localDropped &&
+        !result.fallbackBlob &&
+        !result.lost);
+
+    if (wantsSilentLocalSave) {
       const localBlob = new Blob(
         [...session.uploader.local, ...session.uploader.buffer],
         { type: session.uploader.mimeType },
@@ -490,25 +786,29 @@ async function finishRecording(session) {
       }
     }
 
-    if (result.shareUrl) {
+    if (result.shareUrl || result.driveWebViewLink) {
       session.uploader.discardLocal();
       chrome.runtime.sendMessage({
         type: "vc:upload-finalized",
-        shareUrl: result.shareUrl,
+        shareUrl: result.shareUrl || result.driveWebViewLink,
         ...occupancy(),
       });
+    } else if (session.uploader.destination === "local") {
+      chrome.runtime.sendMessage({ type: "vc:local-save-complete", ...occupancy() });
     } else if (result.fallbackBlob) {
       chrome.runtime.sendMessage({
         type: "vc:recording-complete",
         blobUrl: URL.createObjectURL(result.fallbackBlob),
         mimeType: result.fallbackBlob.type,
         durationSec,
+        errorMessage: result.errorMessage,
         ...occupancy(),
       });
     } else {
       chrome.runtime.sendMessage({
         type: "vc:recording-error",
         error:
+          result.errorMessage ||
           "The upload failed and the recording exceeded the local backup limit.",
         ...occupancy(),
       });

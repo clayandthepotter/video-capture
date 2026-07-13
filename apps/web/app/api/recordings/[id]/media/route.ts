@@ -14,7 +14,9 @@ export async function GET(_req: NextRequest, { params }: Params) {
     .from(recording)
     .where(eq(recording.id, id));
 
-  if (!row || row.status !== "ready") {
+  // Share links only exist for Capca Cloud recordings — Drive and local
+  // recordings have no server-side copy for us to serve.
+  if (!row || row.status !== "ready" || row.destination !== "capca") {
     return NextResponse.json({ error: "Not found" }, { status: 404 });
   }
 

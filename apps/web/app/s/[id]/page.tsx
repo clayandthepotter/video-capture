@@ -9,7 +9,11 @@ type Props = { params: Promise<{ id: string }> };
 
 async function getRecording(id: string) {
   const [row] = await db.select().from(recording).where(eq(recording.id, id));
-  return row && row.status === "ready" ? row : null;
+  // Share links only exist for Capca Cloud recordings — Drive/local
+  // recordings have no server-side copy to play back here.
+  return row && row.status === "ready" && row.destination === "capca"
+    ? row
+    : null;
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {

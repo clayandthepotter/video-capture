@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2000 2000" width="2000" height="2000">
+  <rect width="2000" height="2000" fill="#2563EB"/>
+  <path
+    fill="#FFFFFF"
+    fill-rule="evenodd"
+    d="
+      M 1000 538
+      A 462 462 0 1 1 1000 1462
+      A 462 462 0 1 1 1000 538
+      Z
+      M 1000 759
+      A 241 241 0 1 0 1000 1241
+      A 241 241 0 1 0 1000 759
+      Z
+    "
+  />
+</svg>

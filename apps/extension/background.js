@@ -83,6 +83,7 @@ async function showControls(tabId, status) {
 async function startRecording({
   withMic = true,
   withCamera = true,
+  destination = "capca",
 } = {}) {
   await setStatus({ phase: "creating", withMic, withCamera });
 
@@ -97,6 +98,7 @@ async function startRecording({
   chrome.runtime.sendMessage({
     type: "vc:offscreen-start",
     withMic,
+    destination,
     keepLocalCopy: Boolean(settings?.keepLocalCopy),
   });
 }
@@ -140,6 +142,7 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       void maybeTeardown();
       break;
     case "vc:upload-progress":
+      chrome.runtime.sendMessage(msg).catch(() => {}); // reaches an open popup
       void broadcastToTabs(msg);
       break;
     case "vc:save-local-copy":
@@ -160,6 +163,14 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
       void getStatus().then((s) => {
         if (!isRecordingPhase(s.phase)) {
           void setStatus({ phase: "idle", shareUrl: msg.shareUrl });
+        }
+      });
+      void maybeTeardown();
+      break;
+    case "vc:local-save-complete":
+      void getStatus().then((s) => {
+        if (!isRecordingPhase(s.phase)) {
+          void setStatus({ phase: "idle", savedLocally: true });
         }
       });
       void maybeTeardown();
@@ -245,7 +256,7 @@ async function saveLocalCopy({ blobUrl, mimeType, title }) {
  * locally instead. Streaming uploads happen in the offscreen document.
  */
 async function handleRecordingComplete(msg) {
-  const { blobUrl, mimeType } = msg;
+  const { blobUrl, mimeType, errorMessage } = msg;
   try {
     const ext = (mimeType || "").includes("mp4") ? "mp4" : "webm";
     await chrome.downloads.download({
@@ -255,7 +266,7 @@ async function handleRecordingComplete(msg) {
     });
     const status = await getStatus();
     if (!isRecordingPhase(status.phase)) {
-      await setStatus({ phase: "idle", savedLocally: true });
+      await setStatus({ phase: "idle", savedLocally: true, uploadNote: errorMessage });
     }
     await maybeTeardown();
   } catch (err) {

@@ -38,10 +38,36 @@ function StatusPill({ status }: { status: Recording["status"] }) {
       </span>
     );
   }
+  if (status === "failed") {
+    return (
+      <span className="inline-flex items-center gap-1.5 rounded-full bg-red-100 px-2.5 py-0.5 text-xs font-medium text-red-800">
+        <span className="h-1.5 w-1.5 rounded-full bg-red-600" />
+        Failed
+      </span>
+    );
+  }
   return (
     <span className="inline-flex items-center gap-1.5 rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-800">
       <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-amber-600" />
       Upload incomplete
+    </span>
+  );
+}
+
+const DESTINATION_LABEL: Record<Recording["destination"], string> = {
+  capca: "Capca Cloud",
+  drive: "Google Drive",
+  local: "This device",
+};
+
+function DestinationBadge({
+  destination,
+}: {
+  destination: Recording["destination"];
+}) {
+  return (
+    <span className="inline-flex items-center gap-1.5 rounded-full bg-slate-100 px-2.5 py-0.5 text-xs font-medium text-slate-600">
+      {DESTINATION_LABEL[destination]}
     </span>
   );
 }
@@ -90,10 +116,12 @@ function Row({ rec }: { rec: Recording }) {
     .filter(Boolean)
     .join(" · ");
 
+  const isCapca = rec.destination === "capca" && rec.status === "ready";
+
   return (
     <li className="flex flex-col gap-3 p-5 sm:flex-row sm:items-center sm:justify-between">
       <div className="min-w-0 flex-1">
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2">
           {renaming ? (
             <input
               autoFocus
@@ -109,31 +137,55 @@ function Row({ rec }: { rec: Recording }) {
               }}
               className="w-full max-w-md rounded-lg border border-blue-300 bg-white px-3 py-1.5 text-sm font-medium text-zinc-950 outline-none ring-2 ring-blue-100"
             />
-          ) : (
+          ) : isCapca ? (
             <Link
               href={`/s/${rec.id}`}
               className="truncate font-medium text-zinc-950 hover:text-blue-700"
             >
               {rec.title}
             </Link>
+          ) : (
+            <span className="truncate font-medium text-zinc-950">
+              {rec.title}
+            </span>
           )}
           <StatusPill status={rec.status} />
+          <DestinationBadge destination={rec.destination} />
         </div>
         <p className="mt-1 text-xs text-zinc-500">{meta}</p>
       </div>
       <div className="flex shrink-0 flex-wrap items-center gap-2">
-        <button
-          onClick={() => void copyLink()}
-          className="rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-xs font-semibold text-zinc-700 transition hover:border-zinc-400"
-        >
-          {copied ? "Copied!" : "Copy link"}
-        </button>
-        <a
-          href={`/api/recordings/${rec.id}/media`}
-          className="rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-xs font-semibold text-zinc-700 transition hover:border-zinc-400"
-        >
-          Download
-        </a>
+        {isCapca && (
+          <>
+            <button
+              onClick={() => void copyLink()}
+              className="rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-xs font-semibold text-zinc-700 transition hover:border-zinc-400"
+            >
+              {copied ? "Copied!" : "Copy link"}
+            </button>
+            <a
+              href={`/api/recordings/${rec.id}/media`}
+              className="rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-xs font-semibold text-zinc-700 transition hover:border-zinc-400"
+            >
+              Download
+            </a>
+          </>
+        )}
+        {rec.destination === "drive" && rec.driveWebViewLink && (
+          <a
+            href={rec.driveWebViewLink}
+            target="_blank"
+            rel="noreferrer"
+            className="rounded-lg border border-zinc-300 bg-white px-3 py-1.5 text-xs font-semibold text-zinc-700 transition hover:border-zinc-400"
+          >
+            Open in Drive
+          </a>
+        )}
+        {rec.destination === "local" && (
+          <span className="rounded-lg border border-zinc-200 bg-zinc-50 px-3 py-1.5 text-xs font-medium text-zinc-500">
+            Saved to your device
+          </span>
+        )}
         <button
           onClick={() => setRenaming(true)}
           disabled={busy}
