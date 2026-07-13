@@ -11,6 +11,13 @@ export const auth = betterAuth({
   emailAndPassword: {
     enabled: true,
   },
+  account: {
+    accountLinking: {
+      trustedProviders: ["google", "github"],
+      requireLocalEmailVerified: false,
+      updateUserInfoOnLink: true,
+    },
+  },
   // Providers activate only when credentials are available, so the app runs
   // fine before the OAuth apps are registered.
   socialProviders: {

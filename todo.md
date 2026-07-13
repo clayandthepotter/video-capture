@@ -4,6 +4,9 @@ Updated: 2026-07-13
 
 ## In Progress
 
+- [ ] Allow trusted same-email OAuth account linking across email, Google, and
+  GitHub sign-in, keep OAuth failures on the auth screen, and configure GitHub
+  OAuth if credentials are available.
 - [ ] Stabilize the Chrome extension refactor so manifest, popup/control UI,
   content script, background status machine, and offscreen recorder agree.
 - [ ] Verify the current web record/upload/share/delete loop against local
@@ -37,6 +40,8 @@ Updated: 2026-07-13
 
 ## Done
 
+- [x] Created the production GitHub OAuth app shell for Capca; client secret
+  generation is waiting on GitHub sudo-mode mobile approval.
 - [x] Added Google OAuth client id/secret to the Vercel Production environment
   for `capca` and redeployed production so Google sign-in is registered on
   `capca-cam.vercel.app`.

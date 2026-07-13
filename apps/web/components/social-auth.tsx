@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect } from "react";
 import { useState } from "react";
 import { authClient } from "@/lib/auth-client";
 
@@ -38,12 +39,25 @@ export function SocialAuth() {
   const [busy, setBusy] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const authError = params.get("error");
+    if (!authError) return;
+    setError(
+      authError === "account_not_linked"
+        ? "That email already has a Capca account. Try Google again and we will link it automatically."
+        : "Sign in failed. Try again or use another sign-in method.",
+    );
+  }, []);
+
   async function social(provider: "google" | "github") {
     setBusy(provider);
     setError(null);
     const { error } = await authClient.signIn.social({
       provider,
       callbackURL: "/dashboard",
+      newUserCallbackURL: "/dashboard",
+      errorCallbackURL: "/login",
     });
     if (error) {
       setBusy(null);
