@@ -37,6 +37,9 @@ Updated: 2026-07-13
 
 ## Done
 
+- [x] Reviewed Chrome content-script and Declarative Shadow DOM docs and
+  verified that true Loom-style outside popup rounding requires an injected
+  page overlay, not the native Chrome action popup.
 - [x] Rounded the Chrome extension popup surface, switched the destination
   picker from a native select to a Capca-styled menu, and kept unavailable
   Google Drive state visible in the menu.
