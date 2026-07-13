@@ -3,6 +3,7 @@ import Link from "next/link";
 import { redirect } from "next/navigation";
 import { auth } from "@/lib/auth";
 import { SidebarNav } from "./sidebar-nav";
+import { SignOutButton } from "./settings/sign-out-button";
 
 export default async function DashboardLayout({
   children,
@@ -31,6 +32,9 @@ export default async function DashboardLayout({
             {session.user.name}
           </p>
           <p className="truncate text-xs text-slate-400">{session.user.email}</p>
+          <div className="mt-3">
+            <SignOutButton compact />
+          </div>
         </div>
       </aside>
 

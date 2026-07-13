@@ -28,6 +28,10 @@ export async function GET() {
   const usageBytes = await getCapcaCloudUsageBytes(session.user.id);
 
   return NextResponse.json({
+    user: {
+      name: session.user.name,
+      email: session.user.email,
+    },
     defaultDestination: settings.defaultDestination,
     capcaQuotaBytes: settings.capcaQuotaBytes,
     capcaUsageBytes: usageBytes,

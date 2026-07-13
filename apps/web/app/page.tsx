@@ -1,4 +1,6 @@
 import Link from "next/link";
+import { headers } from "next/headers";
+import { auth } from "@/lib/auth";
 
 const GITHUB_URL = "https://github.com/clayandthepotter/capca";
 
@@ -78,7 +80,9 @@ function Logo() {
   );
 }
 
-function Header() {
+async function Header() {
+  const session = await auth.api.getSession({ headers: await headers() });
+
   return (
     <header className="sticky top-0 z-40 border-b border-slate-200/80 bg-white/85 backdrop-blur-xl">
       <nav className="mx-auto flex h-16 max-w-7xl items-center justify-between px-5 sm:px-6">
@@ -101,10 +105,10 @@ function Header() {
         </div>
         <div className="flex items-center gap-2">
           <Link
-            href="/login"
+            href={session ? "/dashboard" : "/login"}
             className="hidden rounded-lg px-3 py-2 text-sm font-semibold text-slate-600 hover:text-slate-950 sm:block"
           >
-            Sign in
+            {session ? "Dashboard" : "Sign in"}
           </Link>
           <Link
             href="/record"
@@ -423,6 +427,12 @@ function Footer() {
         <div className="flex items-center gap-5">
           <Link href="/dashboard" className="hover:text-slate-950">
             Dashboard
+          </Link>
+          <Link href="/privacy" className="hover:text-slate-950">
+            Privacy
+          </Link>
+          <Link href="/terms" className="hover:text-slate-950">
+            Terms
           </Link>
           <a href={GITHUB_URL} className="hover:text-slate-950">
             GitHub

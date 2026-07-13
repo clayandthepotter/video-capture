@@ -109,13 +109,18 @@ async function openPopupFallback() {
 }
 
 async function getAccountState() {
+  let signedOutBase = null;
   for (const base of API_BASES) {
     try {
       const [settingsRes, driveRes] = await Promise.all([
         fetch(`${base}/api/settings`, { credentials: "include" }),
         fetch(`${base}/api/drive/status`, { credentials: "include" }),
       ]);
-      if (settingsRes.status === 401 || !settingsRes.ok) continue;
+      if (settingsRes.status === 401) {
+        signedOutBase ??= base;
+        continue;
+      }
+      if (!settingsRes.ok) continue;
 
       const settings = await settingsRes.json();
       let drive = { configured: false, connected: false };
@@ -125,6 +130,9 @@ async function getAccountState() {
         ok: true,
         signedIn: true,
         apiBase: base,
+        loginUrl: `${base}/login`,
+        dashboardUrl: `${base}/dashboard`,
+        user: settings.user,
         settings,
         drive,
       };
@@ -135,6 +143,9 @@ async function getAccountState() {
   return {
     ok: false,
     signedIn: false,
+    apiBase: signedOutBase ?? API_BASES[0],
+    loginUrl: `${signedOutBase ?? API_BASES[0]}/login`,
+    dashboardUrl: `${signedOutBase ?? API_BASES[0]}/dashboard`,
     settings: null,
     drive: { configured: false, connected: false },
   };
@@ -189,6 +200,10 @@ chrome.runtime.onMessage.addListener((msg, sender, sendResponse) => {
     case "vc:get-account-state":
       void getAccountState().then((account) => sendResponse(account));
       return true; // async response
+    case "vc:open-url":
+      if (msg.url) void chrome.tabs.create({ url: msg.url });
+      sendResponse({ ok: true });
+      break;
 
     // ---- events from the offscreen recorder ----
     case "vc:recording-started":

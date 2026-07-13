@@ -37,6 +37,9 @@ Updated: 2026-07-13
 
 ## Done
 
+- [x] Showed signed-in identity in the extension, prompted signed-out users to
+  sign in for sharing, showed Dashboard instead of Sign in on the homepage when
+  authenticated, and exposed sign out in the dashboard shell.
 - [x] Gated extension sharing behind sign-in and forced signed-out recordings
   to local-only downloads with no dashboard/cloud record.
 - [x] Moved the primary extension launcher from Chrome's native popup to a

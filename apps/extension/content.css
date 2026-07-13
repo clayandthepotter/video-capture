@@ -586,6 +586,17 @@
   accent-color: var(--vc-launcher-blue);
 }
 
+#__vc_launcher_root .vc-launcher-account {
+  margin: 8px 0 0;
+  overflow: hidden;
+  color: #64748b;
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1.35;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 #__vc_launcher_root .vc-launcher-actions {
   display: grid;
   gap: 10px;

@@ -122,6 +122,7 @@
           <input type="checkbox" data-role="keep-local" />
           <span>Always save a local copy</span>
         </label>
+        <p class="vc-launcher-account" data-role="account"></p>
         <div class="vc-launcher-actions">
           <button class="vc-launcher-primary" type="button" data-action="primary"><span>Start recording</span>${SVG.arrow}</button>
           <button class="vc-launcher-secondary" type="button" data-action="show-controls">Show controls</button>
@@ -136,6 +137,7 @@
     shadow.appendChild(root);
 
     const el = {
+      account: root.querySelector('[data-role="account"]'),
       badge: root.querySelector('[data-role="badge"]'),
       camera: root.querySelector('[data-action="toggle-camera"]'),
       cameraValue: root.querySelector('[data-role="camera-value"]'),
@@ -162,6 +164,8 @@
     let cameraOn = currentStatus.withCamera ?? true;
     let keepLocalPreference = false;
     let signedIn = false;
+    let accountUser = null;
+    let loginUrl = "https://capca-cam.vercel.app/login";
     let destination = "local";
     let driveConfigured = false;
     let driveConnected = false;
@@ -225,16 +229,23 @@
 
       el.primary.disabled = creating;
       el.primary.classList.toggle("vc-launcher-stop", active);
-      el.primary.querySelector("span").textContent = active
-        ? "Stop recording"
-        : creating
-          ? "Starting..."
-          : "Start recording";
+      el.primary.querySelector("span").textContent =
+        !signedIn && !active && !creating
+          ? "Sign in to share"
+          : active
+            ? "Stop recording"
+            : creating
+              ? "Starting..."
+              : "Start recording";
+      el.secondary.textContent = signedIn ? "Show controls" : "Record locally";
       el.mic.disabled = creating || active;
       el.camera.disabled = creating || active;
       el.select.disabled = creating || active;
       el.keepLocal.checked = !signedIn || keepLocalPreference;
       el.keepLocal.disabled = !signedIn;
+      el.account.textContent = signedIn
+        ? `Signed in as: ${accountUser?.name || accountUser?.email || "Capca user"}`
+        : "Not signed in";
 
       el.micValue.textContent = micOn ? "On" : "Off";
       el.micValue.dataset.off = micOn ? "false" : "true";
@@ -326,6 +337,10 @@
         void chrome.runtime.sendMessage({ type: "vc:stop-recording" });
         return;
       }
+      if (!signedIn) {
+        void chrome.runtime.sendMessage({ type: "vc:open-url", url: loginUrl });
+        return;
+      }
       if (destination === "drive" && !driveConnected) {
         el.message.textContent = driveConfigured
           ? "Connect Google Drive in Settings first."
@@ -343,6 +358,17 @@
     });
 
     el.secondary.addEventListener("click", () => {
+      if (!signedIn) {
+        el.progressValue.textContent = "0 MB";
+        void chrome.runtime.sendMessage({
+          type: "vc:start-recording",
+          withMic: micOn,
+          withCamera: cameraOn,
+          destination: "local",
+          signedIn: false,
+        });
+        return;
+      }
       mountControls({ ...currentStatus, withMic: micOn, withCamera: cameraOn });
     });
 
@@ -360,7 +386,9 @@
       .sendMessage({ type: "vc:get-account-state" })
       .then((account) => {
         signedIn = Boolean(account?.signedIn);
+        loginUrl = account?.loginUrl || loginUrl;
         if (account?.ok) {
+          accountUser = account.user;
           lastUsage = account.settings;
           destination = account.settings?.defaultDestination || "capca";
           driveConfigured = Boolean(account.drive?.configured);

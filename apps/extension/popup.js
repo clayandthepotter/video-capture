@@ -32,11 +32,16 @@ let micOn = true;
 let cameraOn = true;
 let keepLocalPreference = false;
 let signedIn = false;
+let accountUser = null;
+let loginUrl = "https://capca-cam.vercel.app/login";
 let driveConnected = false;
 let driveConfigured = false;
-let apiBase = null; // the API_BASES entry that answered, reused for links
 
 el.destination.value = "local";
+
+const accountLine = document.createElement("p");
+accountLine.className = "account-line";
+document.querySelector(".actions")?.before(accountLine);
 
 void chrome.storage.local.get(SETTINGS_KEY).then((store) => {
   keepLocalPreference = Boolean(store[SETTINGS_KEY]?.keepLocalCopy);
@@ -186,39 +191,26 @@ el.destination.addEventListener("change", () => {
 let lastUsage = null;
 
 async function loadAccountState() {
-  for (const base of API_BASES) {
-    try {
-      const [settingsRes, driveRes] = await Promise.all([
-        fetch(`${base}/api/settings`, { credentials: "include" }),
-        fetch(`${base}/api/drive/status`, { credentials: "include" }),
-      ]);
-      if (settingsRes.status === 401) continue; // not signed in on this base
-      if (!settingsRes.ok) continue;
-
-      apiBase = base;
-      signedIn = true;
-      const settings = await settingsRes.json();
-      lastUsage = settings;
-      el.destination.value = settings.defaultDestination || "capca";
-
-      if (driveRes.ok) {
-        const drive = await driveRes.json();
-        driveConfigured = drive.configured;
-        driveConnected = drive.connected;
-      }
-      updateDestinationAvailability();
-      renderBadge(lastUsage);
-      return;
-    } catch {
-      // try next base
-    }
+  const account = await chrome.runtime
+    .sendMessage({ type: "vc:get-account-state" })
+    .catch(() => null);
+  signedIn = Boolean(account?.signedIn);
+  loginUrl = account?.loginUrl || loginUrl;
+  if (account?.ok) {
+    accountUser = account.user;
+    lastUsage = account.settings;
+    el.destination.value = account.settings?.defaultDestination || "capca";
+    driveConfigured = Boolean(account.drive?.configured);
+    driveConnected = Boolean(account.drive?.connected);
+    updateDestinationAvailability();
+    renderBadge(lastUsage);
+    render(currentStatus);
+    return;
   }
-  // Not signed in anywhere reachable — defaults stand, Capca Cloud stays
-  // unavailable; signed-out recordings are local-only downloads.
-  signedIn = false;
   el.destination.value = "local";
   updateDestinationAvailability();
   renderBadge(null);
+  render(currentStatus);
 }
 void loadAccountState();
 
@@ -264,16 +256,23 @@ function render(status) {
   el.primary.classList.toggle("stop", active);
   el.primary.querySelector("span").textContent = active
     ? "Stop recording"
-    : phase === "creating"
-      ? "Starting..."
-      : "Start recording";
+    : !signedIn && phase !== "creating"
+      ? "Sign in to share"
+      : phase === "creating"
+        ? "Starting..."
+        : "Start recording";
+  el.controls.textContent = signedIn ? "Show controls" : "Record locally";
 
   el.mic.disabled = phase === "creating" || active;
   el.camera.disabled = phase === "creating" || active;
   el.destination.disabled = phase === "creating" || active;
   el.keepLocal.checked = !signedIn || keepLocalPreference;
   el.keepLocal.disabled = !signedIn;
+  accountLine.textContent = signedIn
+    ? `Signed in as: ${accountUser?.name || accountUser?.email || "Capca user"}`
+    : "Not signed in";
   syncDestinationMenu();
+  renderBadge(lastUsage);
 
   el.screenStatus.textContent =
     phase === "recording" ? "Recording" : phase === "paused" ? "Paused" : "Ready";
@@ -314,6 +313,10 @@ el.primary.addEventListener("click", async () => {
     await send({ type: "vc:stop-recording" });
     return;
   }
+  if (!signedIn) {
+    await send({ type: "vc:open-url", url: loginUrl });
+    return;
+  }
 
   const destination = el.destination.value;
   if (destination === "drive" && !driveConnected) {
@@ -335,6 +338,16 @@ el.primary.addEventListener("click", async () => {
 });
 
 el.controls.addEventListener("click", () => {
+  if (!signedIn) {
+    void send({
+      type: "vc:start-recording",
+      withMic: micOn,
+      withCamera: cameraOn,
+      destination: "local",
+      signedIn: false,
+    }).then(() => showControls());
+    return;
+  }
   void showControls();
 });
 
