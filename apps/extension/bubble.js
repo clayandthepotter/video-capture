@@ -3,9 +3,8 @@
 // the offscreen recorder can later open the mic without prompting.
 //
 // The recorder captures this bubble as part of the tab/screen video, while mic
-// audio is captured separately in the offscreen document. A tiny visual delay
-// keeps the presenter bubble aligned with the separately captured mic track.
-const CAMERA_VIDEO_DELAY_MS = 120;
+// audio is captured separately in the offscreen document. Keep the presenter
+// preview live; any artificial delay here is baked into the recorded video.
 
 (async () => {
   const msg = document.querySelector(".msg");
@@ -21,42 +20,9 @@ const CAMERA_VIDEO_DELAY_MS = 120;
     video.srcObject = new MediaStream(stream.getVideoTracks());
     video.muted = true;
     video.playsInline = true;
+    video.autoplay = true;
     await video.play();
-
-    if (!("requestVideoFrameCallback" in video)) {
-      msg.replaceWith(video);
-      return;
-    }
-
-    const canvas = document.createElement("canvas");
-    const ctx = canvas.getContext("2d", { alpha: false });
-    if (!ctx) {
-      msg.replaceWith(video);
-      return;
-    }
-
-    const size = 640;
-    canvas.width = size;
-    canvas.height = size;
-    msg.replaceWith(canvas);
-
-    function scheduleFrame() {
-      video.requestVideoFrameCallback(() => {
-        if (video.readyState >= HTMLMediaElement.HAVE_CURRENT_DATA) {
-          createImageBitmap(video)
-            .then((frame) => {
-              setTimeout(() => {
-                ctx.drawImage(frame, 0, 0, canvas.width, canvas.height);
-                frame.close();
-              }, CAMERA_VIDEO_DELAY_MS);
-            })
-            .catch(() => {});
-        }
-        scheduleFrame();
-      });
-    }
-
-    scheduleFrame();
+    msg.replaceWith(video);
   } catch (err) {
     msg.textContent =
       err && err.name === "NotAllowedError"

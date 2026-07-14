@@ -6,7 +6,8 @@
 //   the only source of truth for tab/window/screen choice. No tabCapture stream
 //   ids, no activeTab grant dependency between recordings.
 // - camera bubble: preview iframe in the captured page; mic is captured here.
-// - MP4 (H.264/AAC) preferred, WebM fallback.
+// - WebM/Opus preferred for stable screen-capture audio/video timestamps;
+//   MP4 is kept as a fallback where WebM is unavailable.
 // - Instant sharing: chunks stream to storage WHILE recording, so stopping
 //   only has to flush the tail. Uploads are independent of the recorder — a
 //   new recording can start while the previous one finishes uploading.
@@ -613,8 +614,8 @@ async function getDisplayStream(includeAudio) {
 
 function pickMimeType(hasAudio) {
   const ladders = hasAudio
-    ? [...MP4_MIME_TYPES.withAudio, ...WEBM_MIME_TYPES.withAudio]
-    : [...MP4_MIME_TYPES.videoOnly, ...WEBM_MIME_TYPES.videoOnly];
+    ? [...WEBM_MIME_TYPES.withAudio, ...MP4_MIME_TYPES.withAudio]
+    : [...WEBM_MIME_TYPES.videoOnly, ...MP4_MIME_TYPES.videoOnly];
   for (const mime of ladders) {
     if (MediaRecorder.isTypeSupported(mime)) return mime;
   }

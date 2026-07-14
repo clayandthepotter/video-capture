@@ -35,11 +35,11 @@ not ask for a capture mode separately; Chrome's picker is the source of truth.
   workers have no DOM/media APIs). Uses Chrome's native `getDisplayMedia`
   picker, preserves native audio tracks when possible, uses a low-latency
   mixer only when display/tab audio and mic both need to be combined, routes
-  captured tab audio back to local playback, records MP4 when Chrome supports
-  it and WebM as fallback, then returns a blob URL.
-- **bubble.html / bubble.js** delays the visible presenter-camera feed very
-  slightly because the page-rendered bubble is captured as video while mic
-  audio is captured separately in the offscreen recorder.
+  captured tab audio back to local playback, prefers WebM/Opus for stable
+  capture timestamps, and keeps MP4 as a fallback.
+- **bubble.html / bubble.js** shows the live presenter-camera feed without an
+  artificial delay, because the page-rendered bubble is captured as video while
+  mic audio is captured separately in the offscreen recorder.
 
 ## Known gaps
 

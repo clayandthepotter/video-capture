@@ -37,6 +37,9 @@ Updated: 2026-07-13
 
 ## Done
 
+- [x] Fixed the remaining severe extension audio/video delay risk by removing
+  the artificial presenter-camera delay, switching the bubble back to live
+  video rendering, and preferring WebM/Opus recording before MP4.
 - [x] Replaced the homepage recorder demo's personal signed-in example with a
   neutral sample user name.
 - [x] Replaced the marketing recorder image with an interactive widget that
