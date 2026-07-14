@@ -37,6 +37,9 @@ Updated: 2026-07-14
 
 ## Done
 
+- [x] Made Capca Cloud share-page video playback more reliably seekable by
+  serving byte-range media responses directly instead of redirecting to signed
+  storage URLs.
 - [x] Fixed Capca Cloud multipart completion failures by uploading fixed-size
   non-final R2 parts instead of variable MediaRecorder chunk aggregates and
   returning structured storage-finalization errors from the complete endpoint.

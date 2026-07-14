@@ -12,6 +12,7 @@ import {
 } from "@aws-sdk/client-s3";
 import { getSignedUrl } from "@aws-sdk/s3-request-presigner";
 import { and, eq, sql } from "drizzle-orm";
+import { Readable } from "node:stream";
 import { db } from "./db";
 import { recording } from "./db/schema";
 
@@ -56,10 +57,35 @@ export async function presignUpload(key: string, contentType: string) {
   );
 }
 
-export async function presignDownload(key: string) {
-  return getSignedUrl(s3, new GetObjectCommand({ Bucket: BUCKET, Key: key }), {
-    expiresIn: 3600,
-  });
+function toWebStream(body: unknown): ReadableStream {
+  if (
+    body &&
+    typeof body === "object" &&
+    "transformToWebStream" in body &&
+    typeof body.transformToWebStream === "function"
+  ) {
+    return body.transformToWebStream();
+  }
+  return Readable.toWeb(body as Readable) as ReadableStream;
+}
+
+export async function getObjectForPlayback(key: string, range?: string | null) {
+  const res = await s3.send(
+    new GetObjectCommand({
+      Bucket: BUCKET,
+      Key: key,
+      ...(range ? { Range: range } : {}),
+    }),
+  );
+  if (!res.Body) throw new Error("Storage did not return an object body");
+  return {
+    body: toWebStream(res.Body),
+    contentLength: res.ContentLength,
+    contentRange: res.ContentRange,
+    contentType: res.ContentType,
+    etag: res.ETag,
+    lastModified: res.LastModified,
+  };
 }
 
 export async function deleteObject(key: string) {
